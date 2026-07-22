@@ -11,11 +11,23 @@ prompt），對應每天五個分析時段：**05:00 / 10:00 / 15:00 / 20:00 / 2
 > 因此第五份提示詞的日期計算方式跟其他四份「不一樣」，請見下方排程五內文的
 > 特別說明，**不要**單純複製前四份的日期邏輯。
 
+> **關於認證方式（重要，2026-07 更新）**：每份排程提示詞現在一律在雲端工作區
+> 用「帶 GitHub Personal Access Token 的 HTTPS URL」clone repository，**不再**
+> 依賴本機資料夾／裝置連線。這是因為排程常在無人值守的時段觸發，如果 push
+> 依賴當下裝置是否連線（例如透過本機代理取得 git 認證），裝置沒連線時 push
+> 就會失敗——commit 看起來成功，實際上完全沒推送到 GitHub。詳見
+> [README「設定 Cowork 排程用的 GitHub Personal Access Token」](../README.md#設定-cowork-排程用的-github-personal-access-token)。
+> 下方每份提示詞裡的 `<GITHUB_PAT>` 都只是佔位符——**真正的 token 只能貼在你
+> 建立 Scheduled Task 時的 prompt 欄位裡，絕對不可以貼進這份文件或其他任何會
+> 被 commit 的檔案**。
+
 ## 使用方式
 
-1. 在 Claude（Cowork）中建立排程任務（Scheduled Task），共建立 5 個，分別對應
+1. 先依照 README 指示建立一組專屬的 GitHub Personal Access Token（僅
+   daily-dispatch 這個 repo、Contents: Read and write 權限）。
+2. 在 Claude（Cowork）中建立排程任務（Scheduled Task），共建立 5 個，分別對應
    下面 5 個時段。
-2. 每個排程的 cron 建議設定為（皆為 **UTC**，Asia/Taipei = UTC+8，換算後如下）：
+3. 每個排程的 cron 建議設定為（皆為 **UTC**，Asia/Taipei = UTC+8，換算後如下）：
 
    | 時段（Asia/Taipei，節目表式記法） | 實際觸發時刻（Asia/Taipei） | cron（UTC） |
    | --- | --- | --- |
@@ -25,14 +37,18 @@ prompt），對應每天五個分析時段：**05:00 / 10:00 / 15:00 / 20:00 / 2
    | 20:00 | 當天 20:00 | `0 12 * * *` |
    | 24:00 | **隔天 00:00** | `0 16 * * *`（前一天 16:00 UTC） |
 
-3. 每個排程的 prompt 內容，直接複製下方對應區塊即可，不需要額外修改
-   （已包含所有必要脈絡，因為每次排程觸發都是全新的 Session，不會記得先前對話）。
-4. 請將下方 `g761007`、`daily-dispatch` 換成你實際使用的 GitHub 使用者名稱與
+4. 每個排程的 prompt 內容，複製下方對應區塊後，把 `<GITHUB_PAT>` 換成你剛建立
+   的真實 token 再貼上（其餘不需要修改，已包含所有必要脈絡，因為每次排程觸發
+   都是全新的 Session，不會記得先前對話）。
+5. 請將下方 `g761007`、`daily-dispatch` 換成你實際使用的 GitHub 使用者名稱與
    repository 名稱（若與預設值相同則不需修改）。
 
 ## 共用規則（五個排程都適用）
 
 - 一律使用 **Asia/Taipei** 日期與時間，不可直接使用執行環境的 UTC 日期。
+- 一律在雲端工作區用帶 token 的 HTTPS URL 全新 clone repository，不使用本機
+  資料夾／裝置連線；不執行會把帶 token 的 URL 印出來的指令（例如
+  `git remote -v`）。
 - 只更新 `reports/YYYY-MM-DD.md`，使用文件中規定的固定 `<!-- slot: HH:MM:start -->`
   / `<!-- slot: HH:MM:end -->` 標記；同一時段重跑時「取代」該時段內容，不可重複
   附加、不可刪除或修改其他時段。
@@ -48,10 +64,22 @@ prompt），對應每天五個分析時段：**05:00 / 10:00 / 15:00 / 20:00 / 2
 ```
 你現在要執行 daily-dispatch 專案的每日新聞分析排程（第 1 / 5 個時段：05:00，Asia/Taipei）。
 
-【專案位置】
+【專案位置與認證】
 - GitHub repository：https://github.com/g761007/daily-dispatch
-- 若目前環境已連接使用者本機的 daily-dispatch 專案資料夾，直接在該資料夾工作。
-- 若未連接本機資料夾，請在雲端工作區 git clone 上述 repository（分支：main）。
+- 一律在雲端工作區操作，不使用本機資料夾／裝置連線（避免依賴當下裝置是否連線
+  的不穩定性——本機連線斷開會導致 push 失敗）。
+- 用下列指令 clone 一份全新的 repository 到雲端工作區（<GITHUB_PAT> 是專屬這組
+  自動化使用的 GitHub Personal Access Token，僅有 daily-dispatch 這個 repo 的
+  Contents: Read and write 權限；這個值只存在於這份 Scheduled Task 的設定裡，
+  絕對不可以寫進任何會被 commit 的檔案、不可以出現在任何輸出或 log 裡，也不要
+  執行 `git remote -v` 之類會把帶 token 的 URL 印出來的指令）：
+
+  git clone https://<GITHUB_PAT>@github.com/g761007/daily-dispatch.git /tmp/daily-dispatch
+  cd /tmp/daily-dispatch
+
+- 後面所有讀取、寫入、commit、push 都在這個乾淨的 /tmp/daily-dispatch clone 裡
+  進行；push 時直接用 `git push origin main` 即可（clone 時 remote 已經帶好
+  認證，不需要再另外設定）。
 
 【第一步：確認日期與時段】
 1. 取得目前 Asia/Taipei 的日期（YYYY-MM-DD）與時間，不可使用系統預設 UTC 日期。
@@ -116,10 +144,22 @@ prompt），對應每天五個分析時段：**05:00 / 10:00 / 15:00 / 20:00 / 2
 ```
 你現在要執行 daily-dispatch 專案的每日新聞分析排程（第 2 / 5 個時段：10:00，Asia/Taipei）。
 
-【專案位置】
+【專案位置與認證】
 - GitHub repository：https://github.com/g761007/daily-dispatch
-- 若目前環境已連接使用者本機的 daily-dispatch 專案資料夾，直接在該資料夾工作。
-- 若未連接本機資料夾，請在雲端工作區 git clone 上述 repository（分支：main）。
+- 一律在雲端工作區操作，不使用本機資料夾／裝置連線（避免依賴當下裝置是否連線
+  的不穩定性——本機連線斷開會導致 push 失敗）。
+- 用下列指令 clone 一份全新的 repository 到雲端工作區（<GITHUB_PAT> 是專屬這組
+  自動化使用的 GitHub Personal Access Token，僅有 daily-dispatch 這個 repo 的
+  Contents: Read and write 權限；這個值只存在於這份 Scheduled Task 的設定裡，
+  絕對不可以寫進任何會被 commit 的檔案、不可以出現在任何輸出或 log 裡，也不要
+  執行 `git remote -v` 之類會把帶 token 的 URL 印出來的指令）：
+
+  git clone https://<GITHUB_PAT>@github.com/g761007/daily-dispatch.git /tmp/daily-dispatch
+  cd /tmp/daily-dispatch
+
+- 後面所有讀取、寫入、commit、push 都在這個乾淨的 /tmp/daily-dispatch clone 裡
+  進行；push 時直接用 `git push origin main` 即可（clone 時 remote 已經帶好
+  認證，不需要再另外設定）。
 
 【第一步：確認日期與時段】
 1. 取得目前 Asia/Taipei 的日期（YYYY-MM-DD）與時間。本次觸發時刻落在當天 10:00
@@ -180,10 +220,22 @@ prompt），對應每天五個分析時段：**05:00 / 10:00 / 15:00 / 20:00 / 2
 ```
 你現在要執行 daily-dispatch 專案的每日新聞分析排程（第 3 / 5 個時段：15:00，Asia/Taipei）。
 
-【專案位置】
+【專案位置與認證】
 - GitHub repository：https://github.com/g761007/daily-dispatch
-- 若目前環境已連接使用者本機的 daily-dispatch 專案資料夾，直接在該資料夾工作。
-- 若未連接本機資料夾，請在雲端工作區 git clone 上述 repository（分支：main）。
+- 一律在雲端工作區操作，不使用本機資料夾／裝置連線（避免依賴當下裝置是否連線
+  的不穩定性——本機連線斷開會導致 push 失敗）。
+- 用下列指令 clone 一份全新的 repository 到雲端工作區（<GITHUB_PAT> 是專屬這組
+  自動化使用的 GitHub Personal Access Token，僅有 daily-dispatch 這個 repo 的
+  Contents: Read and write 權限；這個值只存在於這份 Scheduled Task 的設定裡，
+  絕對不可以寫進任何會被 commit 的檔案、不可以出現在任何輸出或 log 裡，也不要
+  執行 `git remote -v` 之類會把帶 token 的 URL 印出來的指令）：
+
+  git clone https://<GITHUB_PAT>@github.com/g761007/daily-dispatch.git /tmp/daily-dispatch
+  cd /tmp/daily-dispatch
+
+- 後面所有讀取、寫入、commit、push 都在這個乾淨的 /tmp/daily-dispatch clone 裡
+  進行；push 時直接用 `git push origin main` 即可（clone 時 remote 已經帶好
+  認證，不需要再另外設定）。
 
 【第一步：確認日期與時段】
 1. 取得目前 Asia/Taipei 的日期（YYYY-MM-DD）與時間。本次觸發時刻落在當天 15:00
@@ -242,10 +294,22 @@ prompt），對應每天五個分析時段：**05:00 / 10:00 / 15:00 / 20:00 / 2
 ```
 你現在要執行 daily-dispatch 專案的每日新聞分析排程（第 4 / 5 個時段：20:00，Asia/Taipei）。
 
-【專案位置】
+【專案位置與認證】
 - GitHub repository：https://github.com/g761007/daily-dispatch
-- 若目前環境已連接使用者本機的 daily-dispatch 專案資料夾，直接在該資料夾工作。
-- 若未連接本機資料夾，請在雲端工作區 git clone 上述 repository（分支：main）。
+- 一律在雲端工作區操作，不使用本機資料夾／裝置連線（避免依賴當下裝置是否連線
+  的不穩定性——本機連線斷開會導致 push 失敗）。
+- 用下列指令 clone 一份全新的 repository 到雲端工作區（<GITHUB_PAT> 是專屬這組
+  自動化使用的 GitHub Personal Access Token，僅有 daily-dispatch 這個 repo 的
+  Contents: Read and write 權限；這個值只存在於這份 Scheduled Task 的設定裡，
+  絕對不可以寫進任何會被 commit 的檔案、不可以出現在任何輸出或 log 裡，也不要
+  執行 `git remote -v` 之類會把帶 token 的 URL 印出來的指令）：
+
+  git clone https://<GITHUB_PAT>@github.com/g761007/daily-dispatch.git /tmp/daily-dispatch
+  cd /tmp/daily-dispatch
+
+- 後面所有讀取、寫入、commit、push 都在這個乾淨的 /tmp/daily-dispatch clone 裡
+  進行；push 時直接用 `git push origin main` 即可（clone 時 remote 已經帶好
+  認證，不需要再另外設定）。
 
 【第一步：確認日期與時段】
 1. 取得目前 Asia/Taipei 的日期（YYYY-MM-DD）與時間。本次觸發時刻落在當天 20:00
@@ -315,10 +379,22 @@ prompt），對應每天五個分析時段：**05:00 / 10:00 / 15:00 / 20:00 / 2
 3. 後面所有步驟中的 YYYY-MM-DD，指的都是這個「減一天」後的目標日期，
    不是觸發當下的實際日期。
 
-【專案位置】
+【專案位置與認證】
 - GitHub repository：https://github.com/g761007/daily-dispatch
-- 若目前環境已連接使用者本機的 daily-dispatch 專案資料夾，直接在該資料夾工作。
-- 若未連接本機資料夾，請在雲端工作區 git clone 上述 repository（分支：main）。
+- 一律在雲端工作區操作，不使用本機資料夾／裝置連線（避免依賴當下裝置是否連線
+  的不穩定性——本機連線斷開會導致 push 失敗）。
+- 用下列指令 clone 一份全新的 repository 到雲端工作區（<GITHUB_PAT> 是專屬這組
+  自動化使用的 GitHub Personal Access Token，僅有 daily-dispatch 這個 repo 的
+  Contents: Read and write 權限；這個值只存在於這份 Scheduled Task 的設定裡，
+  絕對不可以寫進任何會被 commit 的檔案、不可以出現在任何輸出或 log 裡，也不要
+  執行 `git remote -v` 之類會把帶 token 的 URL 印出來的指令）：
+
+  git clone https://<GITHUB_PAT>@github.com/g761007/daily-dispatch.git /tmp/daily-dispatch
+  cd /tmp/daily-dispatch
+
+- 後面所有讀取、寫入、commit、push 都在這個乾淨的 /tmp/daily-dispatch clone 裡
+  進行；push 時直接用 `git push origin main` 即可（clone 時 remote 已經帶好
+  認證，不需要再另外設定）。
 
 ===== 第一部分：完成 24:00 分析 =====
 

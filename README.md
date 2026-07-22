@@ -21,6 +21,7 @@ Actions** 驗證、經由 **Telegram Bot** 發送一次通知。
 - [建立 Telegram Bot](#建立-telegram-bot)
 - [如何取得 Chat ID](#如何取得-chat-id)
 - [設定 GitHub Secrets](#設定-github-secrets)
+- [設定 Cowork 排程用的 GitHub Personal Access Token](#設定-cowork-排程用的-github-personal-access-token)
 - [設定 Claude Cowork 五個排程](#設定-claude-cowork-五個排程)
 - [如何修改排程時段](#如何修改排程時段)
 - [如何手動補發指定日期](#如何手動補發指定日期)
@@ -227,11 +228,51 @@ secret**，新增兩個 Secrets：
 `${{ secrets.TELEGRAM_BOT_TOKEN }}` / `${{ secrets.TELEGRAM_CHAT_ID }}` 這種
 方式引用，不會出現在任何檔案、commit 或 workflow log 中。
 
+## 設定 Cowork 排程用的 GitHub Personal Access Token
+
+五個 Claude Cowork 排程需要自己 push 到 GitHub，跟上面的 `TELEGRAM_BOT_TOKEN`
+是完全不同的機制——**這個 token 不是放進 GitHub Secrets**，而是放進每個
+Scheduled Task 的 prompt 設定裡（原因與取捨見下方說明）。
+
+**為什麼需要它**：Cowork 排程常常在無人值守的時段觸發（例如凌晨）。如果排程
+的 push 依賴「當下裝置／桌面 App 是否連線」，裝置沒連線時 push 就會失敗——
+內容分析與 commit 可能都成功了，但完全沒有推送到 GitHub，隔天也不會被發現。
+因此每個排程一律在雲端工作區用「帶 token 的 HTTPS URL」全新 clone
+repository，不依賴本機資料夾或裝置連線。
+
+**建立步驟**：
+
+1. 到 <https://github.com/settings/personal-access-tokens/new>（Fine-grained
+   personal access tokens，不是 Classic token）。
+2. Token name：例如 `daily-dispatch-cowork-push`。
+3. Expiration：建議 90 天或 1 年，並記下到期日——到期後排程會 push 失敗，需要
+   重新產生一組並更新五個 Scheduled Task。
+4. Repository access：選 **Only select repositories**，選擇 `daily-dispatch`。
+5. Permissions → Repository permissions：只開 **Contents: Read and write**，
+   其他一律維持 No access（最小權限）。
+6. 產生後複製 token（格式類似 `github_pat_xxxxx...`），貼到
+   `docs/cowork-schedules.md` 五份提示詞裡 `<GITHUB_PAT>` 的位置，再把完整的
+   提示詞內容貼進對應的 Scheduled Task。
+
+**安全注意事項**：
+
+- 這個 token **絕對不可以**寫進 repository 的任何檔案（`docs/cowork-schedules.md`
+  裡的 `<GITHUB_PAT>` 只是佔位符）、不可以出現在 commit、log 或任何輸出中。
+- 它只會存在於 Scheduled Task 自己的 prompt 設定裡，只有你自己看得到——但這跟
+  `TELEGRAM_BOT_TOKEN` 存放在 GitHub Actions Secrets（有加密、不會明文顯示）
+  是不同等級的保護，算是為了讓排程能穩定運作所做的取捨。如果在意，可以定期
+  更換這組 token，或改成讓排程在你自己電腦上執行（見
+  [如何修改排程時段](#如何修改排程時段) 前的說明，需要電腦在排程時間保持開機
+  並與 Claude 桌面 App 連線）。
+- 權限僅限 `daily-dispatch` 這一個 repository、且只有 Contents 讀寫，即使
+  外洩，影響範圍也僅止於這個 repo 的內容，不會波及你 GitHub 帳號的其他部分。
+
 ## 設定 Claude Cowork 五個排程
 
 1. 打開 `docs/cowork-schedules.md`，裡面有五份完整、可直接複製的排程提示詞
    （對應 05:00 / 10:00 / 15:00 / 20:00 / 24:00，Asia/Taipei；「24:00」代表當天
-   最後一次，實際觸發時刻是隔天 00:00，文件內有詳細的日期換算說明）。
+   最後一次，實際觸發時刻是隔天 00:00，文件內有詳細的日期換算說明）。每份都要
+   把 `<GITHUB_PAT>` 換成上一節建立的真實 token 再貼上。
 2. 在 Claude 建立 5 個 Scheduled Task，各自貼上對應的提示詞，並依文件內建議的
    cron（UTC 時間）設定排程頻率為「每天一次」。
 3. 五個排程只負責「內容分析、寫入 reports、產生最終摘要」，**不會**接觸
