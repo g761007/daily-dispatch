@@ -1,0 +1,21 @@
+---
+layout: default
+---
+<article class="summary-article">
+  <header class="summary-header">
+    <p class="summary-date">{{ page.date | date: "%Y 年 %m 月 %d 日" }}</p>
+    <h1>{{ page.title }}</h1>
+    {% if page.description %}
+    <p class="summary-description">{{ page.description }}</p>
+    {% endif %}
+  </header>
+
+  <div class="summary-body">
+    {{ content }}
+  </div>
+
+  <footer class="summary-footer">
+    <a class="btn-link" href="{{ '/' | relative_url }}">← 回首頁</a>
+    <a class="btn-link" href="{{ '/archive.html' | relative_url }}">查看歷史摘要</a>
+  </footer>
+</article>

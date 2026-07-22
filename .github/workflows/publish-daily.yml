@@ -1,0 +1,120 @@
+name: Publish Daily Summary
+
+# 只允許排程與手動觸發，不接受任何形式的外部 PR 觸發，
+# 也不會 checkout 或執行來自 Fork 的程式碼（沒有 pull_request / pull_request_target 觸發）。
+on:
+  schedule:
+    # 00:00 UTC = 08:00 Asia/Taipei（隔天）。
+    # 最後一次分析在前一天 22:00 Asia/Taipei 完成，發布排程刻意間隔 10 小時以上，
+    # 讓 GitHub Pages 的自動部署（見 deploy-pages.yml）有足夠時間完成，
+    # 避免 Telegram 訊息內的網頁連結尚未部署完成。
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "選填：要補發的日期（Asia/Taipei，格式 YYYY-MM-DD）。留空則預設為「前一天」"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-summary-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Validate, notify, and mark published
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install script dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Resolve target date (Asia/Taipei)
+        id: resolve_date
+        env:
+          MANUAL_DATE: ${{ inputs.date }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import datetime
+          import os
+          from zoneinfo import ZoneInfo
+
+          manual = os.environ.get("MANUAL_DATE", "").strip()
+          if manual:
+              # 手動補發：直接使用使用者指定的日期。
+              date_str = manual
+          else:
+              # 排程自動執行：正式發布的是「前一天」的每日摘要
+              # （因為最後分析在前一天 22:00，發布排程在隔天 08:00 執行）。
+              taipei_now = datetime.datetime.now(ZoneInfo("Asia/Taipei"))
+              target = taipei_now.date() - datetime.timedelta(days=1)
+              date_str = target.strftime("%Y-%m-%d")
+          print(f"date={date_str}")
+          PY
+
+      - name: Check if already published
+        id: check_published
+        run: |
+          if [ -f ".state/published/${{ steps.resolve_date.outputs.date }}" ]; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip notice (already published)
+        if: steps.check_published.outputs.already == 'true'
+        run: |
+          echo "${{ steps.resolve_date.outputs.date }} 已經發布過，略過本次發布（不會重複傳送 Telegram）。"
+
+      - name: Validate report and summary
+        if: steps.check_published.outputs.already == 'false'
+        run: |
+          python scripts/validate_report.py --date "${{ steps.resolve_date.outputs.date }}"
+
+      - name: Extract Telegram-ready summary
+        if: steps.check_published.outputs.already == 'false'
+        id: extract
+        run: |
+          mkdir -p "$RUNNER_TEMP/telegram"
+          python scripts/extract_summary.py \
+            --date "${{ steps.resolve_date.outputs.date }}" \
+            --base-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" \
+            --output-dir "$RUNNER_TEMP/telegram"
+          echo "manifest=$RUNNER_TEMP/telegram/manifest.json" >> "$GITHUB_OUTPUT"
+
+      - name: Send Telegram notification
+        if: steps.check_published.outputs.already == 'false'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python scripts/send_telegram.py --manifest "${{ steps.extract.outputs.manifest }}"
+
+      - name: Mark date as published
+        if: steps.check_published.outputs.already == 'false'
+        run: |
+          python scripts/mark_published.py \
+            --date "${{ steps.resolve_date.outputs.date }}" \
+            --run-id "${{ github.run_id }}"
+
+      - name: Commit and push published state
+        if: steps.check_published.outputs.already == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ".state/published/${{ steps.resolve_date.outputs.date }}"
+          git commit -m "chore: mark ${{ steps.resolve_date.outputs.date }} summary as published"
+          git pull --rebase origin "${{ github.ref_name }}"
+          git push origin "HEAD:${{ github.ref_name }}"

@@ -1,0 +1,60 @@
+---
+layout: default
+title: 歷史摘要
+description: 依年份與月份分類的每日新聞摘要歷史紀錄
+permalink: /archive.html
+---
+
+{% assign sorted_summaries = site.summaries | sort: "date" | reverse %}
+
+<section class="archive-header">
+  <h1>歷史摘要</h1>
+  <p class="hero-subtitle">依日期由新到舊列出所有每日摘要，可用關鍵字搜尋標題與描述。</p>
+</section>
+
+{% if sorted_summaries.size == 0 %}
+<section class="empty-state">
+  <p>目前還沒有任何每日摘要。</p>
+</section>
+{% else %}
+
+<div class="archive-search">
+  <input
+    type="search"
+    id="archive-search-input"
+    placeholder="搜尋標題或描述關鍵字…"
+    aria-label="搜尋歷史摘要"
+    autocomplete="off"
+  >
+  <p id="archive-search-empty" class="archive-search-empty" hidden>找不到符合的摘要。</p>
+</div>
+
+{% assign current_year_month = "" %}
+<div id="archive-list">
+  {% for summary in sorted_summaries %}
+    {% assign year_month = summary.date | date: "%Y 年 %m 月" %}
+    {% if year_month != current_year_month %}
+      {% unless forloop.first %}</div>{% endunless %}
+      <h2 class="archive-group-title">{{ year_month }}</h2>
+      <div class="archive-group">
+      {% assign current_year_month = year_month %}
+    {% endif %}
+    <article
+      class="archive-item"
+      data-search="{{ summary.title | append: ' ' | append: summary.description | strip_html | downcase }}"
+    >
+      <a class="archive-item-link" href="{{ summary.url | relative_url }}">
+        <time class="archive-item-date" datetime="{{ summary.date | date: '%Y-%m-%d' }}">
+          {{ summary.date | date: "%m/%d" }}
+        </time>
+        <span class="archive-item-body">
+          <span class="archive-item-title">{{ summary.title }}</span>
+          <span class="archive-item-description">{{ summary.description }}</span>
+        </span>
+      </a>
+    </article>
+    {% if forloop.last %}</div>{% endif %}
+  {% endfor %}
+</div>
+
+{% endif %}

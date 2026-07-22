@@ -1,0 +1,6 @@
+source "https://rubygems.org"
+
+gem "jekyll", "~> 4.3"
+
+# webrick is required for `jekyll serve` on Ruby >= 3.0
+gem "webrick", "~> 1.8"

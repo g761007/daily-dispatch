@@ -1,0 +1,13 @@
+{
+  "timezone": "Asia/Taipei",
+  "analysis_slots": [
+    "03:00",
+    "07:00",
+    "12:00",
+    "17:00",
+    "22:00"
+  ],
+  "final_slot": "22:00",
+  "publish_time": "08:00",
+  "publish_time_note": "publish_time 為隔天（Asia/Taipei）正式發布 GitHub Actions 排程時間。因為最後一次分析在 22:00，發布排程需落在隔天，等同時間軸上的 32:00（22:00 + 10 小時）。GitHub Actions cron 已對應設定為隔天 08:00 Asia/Taipei，詳見 .github/workflows/publish-daily.yml 與 README「如何修改排程時段」。"
+}

@@ -1,0 +1,49 @@
+title: DailyDispatch
+description: 每日重要新聞、趨勢與影響分析
+lang: zh-TW
+timezone: Asia/Taipei
+
+author: g761007
+github_username: g761007
+repository: daily-dispatch
+
+# Project Pages 網址：https://g761007.github.io/daily-dispatch/
+# 若 GitHub 使用者名稱不同，請同步修改 github_username 與 README 中的網址。
+url: "https://g761007.github.io"
+baseurl: "/daily-dispatch"
+
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+
+collections:
+  summaries:
+    output: true
+    permalink: /daily/:name/
+
+defaults:
+  - scope:
+      path: ""
+      type: summaries
+    values:
+      layout: summary
+  - scope:
+      path: ""
+    values:
+      layout: default
+
+exclude:
+  - README.md
+  - LICENSE
+  - .gitignore
+  - Gemfile
+  - Gemfile.lock
+  - vendor
+  - node_modules
+  - reports
+  - scripts
+  - config
+  - docs
+  - .state
+  - .github
