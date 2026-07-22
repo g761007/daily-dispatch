@@ -20,9 +20,11 @@ REPORTS_DIR = REPO_ROOT / "reports"
 SUMMARIES_DIR = REPO_ROOT / "site" / "_summaries"
 PUBLISHED_DIR = REPO_ROOT / ".state" / "published"
 
-# 每日五個固定分析時段（Asia/Taipei）
-SLOTS = ["03:00", "07:00", "12:00", "17:00", "22:00"]
-FINAL_SLOT = "22:00"
+# 每日五個固定分析時段（Asia/Taipei）。
+# 「24:00」是傳統節目表式的記法，代表「當天最後一次」，實際觸發時刻是隔天 00:00，
+# 但邏輯上仍歸屬於前一個日曆日（見 docs/cowork-schedules.md 排程五的日期換算說明）。
+SLOTS = ["05:00", "10:00", "15:00", "20:00", "24:00"]
+FINAL_SLOT = "24:00"
 
 DATE_FMT = "%Y-%m-%d"
 

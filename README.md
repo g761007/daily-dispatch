@@ -39,11 +39,11 @@ Actions** 驗證、經由 **Telegram Bot** 發送一次通知。
 ```
 Claude Cowork 每日排程（Asia/Taipei）
         │
-        ├─ 排程一 03:00：分析並更新當日累積檔案
-        ├─ 排程二 07:00：分析並更新當日累積檔案
-        ├─ 排程三 12:00：分析並更新當日累積檔案
-        ├─ 排程四 17:00：分析並更新當日累積檔案
-        └─ 排程五 22:00：
+        ├─ 排程一 05:00：分析並更新當日累積檔案
+        ├─ 排程二 10:00：分析並更新當日累積檔案
+        ├─ 排程三 15:00：分析並更新當日累積檔案
+        ├─ 排程四 20:00：分析並更新當日累積檔案
+        └─ 排程五 24:00（實際觸發於隔天 00:00）：
              ├─ 完成第五次分析
              ├─ 讀取當日全部分析
              ├─ 確認五個時段都齊全
@@ -80,7 +80,7 @@ Claude Cowork 每日排程（Asia/Taipei）
 1. **內容產製**：Claude Cowork 在五個時段負責「內容分析」，直接寫入
    `reports/YYYY-MM-DD.md` 並 push 到 GitHub。這一步**不會**用到任何 Secrets，
    也**不會**呼叫 Telegram 或觸發正式發布 workflow。
-2. **最終整理**：第五個排程（22:00）額外負責讀取當天全部五個時段內容，重新
+2. **最終整理**：第五個排程（24:00，實際觸發於隔天 00:00）額外負責讀取當天全部五個時段內容，重新
    整理（不是直接拼接）成 `site/_summaries/YYYY-MM-DD.md`，並把
    `reports/YYYY-MM-DD.md` 的狀態改成 `ready`。
 3. **網站部署**：`site/**` 有變更時，`deploy-pages.yml` 會自動建置 Jekyll 網站
@@ -230,7 +230,8 @@ secret**，新增兩個 Secrets：
 ## 設定 Claude Cowork 五個排程
 
 1. 打開 `docs/cowork-schedules.md`，裡面有五份完整、可直接複製的排程提示詞
-   （對應 03:00 / 07:00 / 12:00 / 17:00 / 22:00，Asia/Taipei）。
+   （對應 05:00 / 10:00 / 15:00 / 20:00 / 24:00，Asia/Taipei；「24:00」代表當天
+   最後一次，實際觸發時刻是隔天 00:00，文件內有詳細的日期換算說明）。
 2. 在 Claude 建立 5 個 Scheduled Task，各自貼上對應的提示詞，並依文件內建議的
    cron（UTC 時間）設定排程頻率為「每天一次」。
 3. 五個排程只負責「內容分析、寫入 reports、產生最終摘要」，**不會**接觸
@@ -247,8 +248,8 @@ secret**，新增兩個 Secrets：
    - 到 `docs/cowork-schedules.md`，把五份提示詞中的時段文字、slot 標記
      （`<!-- slot: HH:MM:start -->` 等）與 cron 對照表都同步更新。
    - 到 Claude 的 Scheduled Task 設定頁，更新對應排程的執行時間。
-3. 若要改變正式發布時間（目前預設 Asia/Taipei 08:00，對應最後分析時段
-   22:00 之後 10 小時）：
+3. 若要改變正式發布時間（目前預設 Asia/Taipei 08:00，與最後分析時段
+   24:00／實際隔天 00:00 相隔約 8 小時）：
    - 修改 `.github/workflows/publish-daily.yml` 的 `schedule.cron`
      （記得 cron 是 UTC 時間，Asia/Taipei = UTC+8）。
    - 更新 `config/schedule.json` 的 `publish_time` 與 `publish_time_note`。
@@ -389,7 +390,7 @@ GitHub Actions 環境中）。
 
 **Q: Telegram 訊息裡的連結打開是 404？**
 A: 確認 `publish-daily.yml` 執行時間與 `deploy-pages.yml` 部署完成時間有
-足夠間隔（預設間隔 10 小時，遠超過建議的 30 分鐘）。如果你調整了排程時間，
+足夠間隔（預設間隔約 8 小時，遠超過建議的 30 分鐘）。如果你調整了排程時間，
 請重新確認這個間隔是否仍然足夠。
 
 **Q: 想要暫停某一天的自動發送？**

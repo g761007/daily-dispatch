@@ -4,8 +4,9 @@ name: Publish Daily Summary
 # 也不會 checkout 或執行來自 Fork 的程式碼（沒有 pull_request / pull_request_target 觸發）。
 on:
   schedule:
-    # 00:00 UTC = 08:00 Asia/Taipei（隔天）。
-    # 最後一次分析在前一天 22:00 Asia/Taipei 完成，發布排程刻意間隔 10 小時以上，
+    # 00:00 UTC = 08:00 Asia/Taipei。
+    # 最後一次分析時段標記為「24:00」（節目表式記法，代表前一天最後一次），
+    # 實際觸發時刻是當天 00:00 Asia/Taipei，與本排程的 08:00 間隔約 8 小時，
     # 讓 GitHub Pages 的自動部署（見 deploy-pages.yml）有足夠時間完成，
     # 避免 Telegram 訊息內的網頁連結尚未部署完成。
     - cron: "0 0 * * *"
@@ -57,7 +58,8 @@ jobs:
               date_str = manual
           else:
               # 排程自動執行：正式發布的是「前一天」的每日摘要
-              # （因為最後分析在前一天 22:00，發布排程在隔天 08:00 執行）。
+              # （因為最後分析時段 24:00 實際觸發於當天 00:00，發布排程在
+              #   當天 08:00 執行，兩者相隔約 8 小時）。
               taipei_now = datetime.datetime.now(ZoneInfo("Asia/Taipei"))
               target = taipei_now.date() - datetime.timedelta(days=1)
               date_str = target.strftime("%Y-%m-%d")
