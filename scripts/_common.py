@@ -119,5 +119,13 @@ def slot_body(content: str, slot: str) -> str | None:
 
 
 def missing_slots(content: str) -> list[str]:
-    """回傳缺少（或不完整）的時段清單。"""
-    return [slot for slot in SLOTS if slot_body(content, slot) is None]
+    """回傳缺少（或不完整）的時段清單。
+
+    「缺少」涵蓋兩種情況：start/end 標記本身不存在（或順序錯誤），以及
+    標記存在但中間沒有實際內容（例如檔案剛建立時的空骨架，或某次排程
+    失敗、只留下一對空標記）。兩種情況都視為「這個時段沒有可用內容」，
+    這樣 validate_report.py 的「五個時段是否全部沒有內容」防呆判斷才會
+    正確；至於「缺 1～4 個時段仍可發布」的行為，是刻意設計、不受這個
+    函式影響（見 docs/cowork-schedules.md 排程五）。
+    """
+    return [slot for slot in SLOTS if not slot_body(content, slot)]

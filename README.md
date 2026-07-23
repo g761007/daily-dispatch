@@ -47,8 +47,10 @@ Claude Cowork 每日排程（Asia/Taipei）
         └─ 排程五 24:00（實際觸發於隔天 00:00）：
              ├─ 完成第五次分析
              ├─ 讀取當日全部分析
-             ├─ 確認五個時段都齊全
-             ├─ 產生最終每日摘要（site/_summaries/YYYY-MM-DD.md）
+             ├─ 確認至少有一個時段收集到內容（不要求五個時段全部齊全，
+             │   缺一兩個時段仍會照常發布，只在「全部沒內容」時才暫緩）
+             ├─ 產生最終每日摘要（site/_summaries/YYYY-MM-DD.md，缺漏的
+             │   時段會在摘要中明確註明）
              └─ 將 reports 狀態改為 ready
                         │
               git push 到 main 分支
@@ -432,9 +434,15 @@ unset TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID
 
 ## 常見問題排除
 
-**Q: `Publish Daily Summary` workflow 失敗，說找不到 reports 檔案？**
-A: 代表當天（前一天）五個分析排程可能沒有跑完，或還沒 push。請確認
-`reports/YYYY-MM-DD.md` 是否存在、五個時段是否齊全、狀態是否為 `ready`。
+**Q: `Publish Daily Summary` workflow 失敗，說找不到 reports 檔案，或說狀態不是 ready？**
+A: 代表當天（前一天）24:00 排程可能沒有跑完或還沒 push——請注意這**不代表**
+五個時段都要跑完才能發布：只要 24:00 排程順利執行、且當天至少有一個時段收集
+到內容，就會把狀態改成 `ready` 並正常發布，即使中間有一兩個時段的排程執行
+失敗也一樣。只有在 24:00 排程本身完全沒跑（`reports/YYYY-MM-DD.md` 不存在）
+或當天五個時段全部沒有內容（極端情況，24:00 排程會刻意讓狀態停在
+`collecting`）時，才會被 `validate_report.py` 擋下、暫不發布。請先確認
+`reports/YYYY-MM-DD.md` 是否存在、狀態是否為 `ready`；若狀態是 `ready` 但
+仍然失敗，再檢查 `site/_summaries/YYYY-MM-DD.md` 是否存在且格式正確。
 
 **Q: workflow 顯示「已發布過，略過」，但我沒收到 Telegram？**
 A: 檢查 `.state/published/YYYY-MM-DD` 是否真的存在且對應正確日期——如果存在，

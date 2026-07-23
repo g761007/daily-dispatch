@@ -7,8 +7,13 @@
 
 檢查項目：
     1. reports/YYYY-MM-DD.md 是否存在。
-    2. 五個時段標記（start/end）是否完整。
-    3. status 是否為 ready。
+    2. status 是否為 ready（是否「可以發布」完全由這個欄位決定；24:00 排程
+       只要當天至少有一個時段收集到內容，就會把狀態改為 ready，不要求五個
+       時段全部齊全——即使某次排程執行失敗、缺少一兩個時段，隔天還是要能
+       正常發布，不能因為湊不滿五次摘要而卡住）。
+    3. 若標記為 ready，但五個時段「全部」缺少內容（等於完全沒有任何實際
+       分析內容可發布），視為異常資料而擋下——這跟「缺一兩個時段仍可發布」
+       是兩回事，純粹是防呆。
     4. site/_summaries/YYYY-MM-DD.md 是否存在。
     5. 公開摘要的 YAML Front Matter 是否包含必要欄位。
     6. 公開摘要內文是否非空。
@@ -55,16 +60,28 @@ def validate(date_str: str) -> None:
     content = c.read_text(report_file)
 
     missing = c.missing_slots(content)
-    if missing:
-        c.die(
-            f"reports/{date_str}.md 缺少或不完整的時段：{', '.join(missing)}"
-        )
 
     status = c.get_status(content)
     if status != "ready":
+        detail = f"（目前缺少時段：{', '.join(missing)}）" if missing else ""
         c.die(
             f"reports/{date_str}.md 狀態為 {status!r}，尚未標記為 ready，"
-            "不可發布"
+            f"不可發布{detail}"
+        )
+
+    # status 已經是 ready：代表 24:00 排程判斷「當天至少有內容可以發布」。
+    # 缺一兩個時段是允許的（某次排程可能執行失敗），不應該因此擋下發布；
+    # 只有「五個時段全部缺內容」這種明顯異常的資料才擋下。
+    if len(missing) == len(c.SLOTS):
+        c.die(
+            f"reports/{date_str}.md 標記為 ready，但五個時段全部缺少內容，"
+            "判定為異常資料，不可發布"
+        )
+    elif missing:
+        print(
+            f"[daily-dispatch] 注意：{date_str} 有 {len(missing)} 個時段缺少內容"
+            f"（{', '.join(missing)}），仍依 24:00 排程的判斷以現有內容發布。",
+            file=sys.stderr,
         )
 
     summary_file = c.summary_path(date_str)
@@ -96,7 +113,8 @@ def validate(date_str: str) -> None:
     if problems:  # 保留擴充用；目前每個檢查都直接 die，不會走到這裡
         c.die("；".join(problems))
 
-    print(f"[daily-dispatch] {date_str} 驗證通過：五個時段完整、status=ready、公開摘要格式正確")
+    coverage = f"{len(c.SLOTS) - len(missing)}/{len(c.SLOTS)} 個時段有內容"
+    print(f"[daily-dispatch] {date_str} 驗證通過：status=ready、{coverage}、公開摘要格式正確")
 
 
 def main() -> None:
