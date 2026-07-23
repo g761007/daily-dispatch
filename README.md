@@ -100,7 +100,8 @@ daily-dispatch/
 ├── .gitignore
 │
 ├── config/
-│   └── schedule.json              排程時段設定（僅供參考／文件用途）
+│   ├── schedule.json               排程時段設定（僅供參考／文件用途）
+│   └── categories.json             新聞分類設定（僅供參考／文件用途）
 │
 ├── reports/
 │   └── YYYY-MM-DD.md              每日累積分析（五個時段寫入同一份）
@@ -296,6 +297,27 @@ repository，不依賴本機資料夾或裝置連線。
    - 更新 `config/schedule.json` 的 `publish_time` 與 `publish_time_note`。
    - 請保留「最後分析時段」到「正式發布」之間至少 30 分鐘的間隔，讓
      GitHub Pages 有時間完成部署（見 `publish-daily.yml` 內的註解）。
+
+## 新聞分類
+
+五個 Cowork 分析排程搜尋與整理內容時，一律以四大類別為主軸（定義同時記錄在
+[`config/categories.json`](config/categories.json)，僅供文件用途／人工參考，
+不會被程式自動讀取）：
+
+1. 國際重大新聞（政治、外交、重大事件）
+2. 臺灣/兩岸相關新聞
+3. 科技與 AI 產業動態（新產品、重大技術發布、公司動向）
+4. 財經與市場（股市、匯率、重大經濟數據，若有明顯波動請標註）
+
+每個時段寫入 `reports/YYYY-MM-DD.md` 的「### 重要更新」都依這四個類別分成四個
+小節；24:00 排程彙整的最終公開摘要（`site/_summaries/YYYY-MM-DD.md`）的
+「## 重要事件」一節也依同樣四個類別整理。若要調整分類：
+
+1. 修改 `config/categories.json`。
+2. 同步修改 `docs/cowork-schedules.md` 五份提示詞中對應的分類小節（以及最終
+   摘要範本）。
+3. 到 Claude 的 Scheduled Task 設定頁，把 5 個排程的 prompt 內容更新為修改後
+   的版本（記得把 `<GITHUB_PAT>` 換回實際 token）。
 
 ## 如何手動補發指定日期
 
