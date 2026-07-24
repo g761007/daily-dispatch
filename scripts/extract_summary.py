@@ -9,7 +9,7 @@
     1. 讀取 site/_summaries/YYYY-MM-DD.md，移除 YAML Front Matter。
     2. 保留「本日笑話」（選填，沒有就略過）「今日重點」「今日趨勢」
        「明日觀察」四個區塊（不傳送完整五時段原文）。
-    3. 加入當日 GitHub Pages 網址。
+    3. 在開頭加入當日 GitHub Pages 網址（只出現這一次，結尾不重複）。
     4. 做好 HTML escape（Telegram 使用 HTML 解析模式，不用 MarkdownV2）。
     5. 若總長度超過建議長度，先縮短「今日趨勢」「今日觀察」等次要區塊。
     6. 若縮短後仍超過 Telegram 單則訊息長度限制，安全地拆成多則訊息，
@@ -130,9 +130,9 @@ def build_messages(date_str: str, url: str, sections: dict[str, str]) -> list[st
     highlight_block = f"【{SECTION_HEADINGS['highlights']}】\n{escaped['highlights']}"
     trend_block = f"【{SECTION_HEADINGS['trends']}】\n{escaped['trends']}"
     tomorrow_block = f"【{SECTION_HEADINGS['tomorrow']}】\n{escaped['tomorrow']}"
-    footer_block = f"完整內容：\n{url}"
+    # 網址已經在開頭的 lead 區塊出現過，結尾不再重複貼一次。
 
-    full_blocks = [lead, *([joke_block] if joke_block else []), highlight_block, trend_block, tomorrow_block, footer_block]
+    full_blocks = [lead, *([joke_block] if joke_block else []), highlight_block, trend_block, tomorrow_block]
     full_text = "\n\n".join(full_blocks)
     if len(full_text) <= SOFT_TARGET:
         return [full_text]
@@ -148,7 +148,6 @@ def build_messages(date_str: str, url: str, sections: dict[str, str]) -> list[st
         f"【{SECTION_HEADINGS['highlights']}】\n{shortened_sections['highlights']}",
         f"【{SECTION_HEADINGS['trends']}】\n{shortened_sections['trends']}",
         f"【{SECTION_HEADINGS['tomorrow']}】\n{shortened_sections['tomorrow']}",
-        footer_block,
     ]
     shortened_text = "\n\n".join(shortened_blocks)
     if len(shortened_text) <= TELEGRAM_HARD_LIMIT:
