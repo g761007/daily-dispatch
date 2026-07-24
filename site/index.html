@@ -5,11 +5,24 @@ description: 每日重要新聞、趨勢與影響分析
 ---
 
 {% assign sorted_summaries = site.summaries | sort: "date" | reverse %}
+{% assign latest = sorted_summaries.first %}
 
-<section class="hero">
-  <h1>DailyDispatch</h1>
-  <p class="hero-subtitle">{{ site.description }}</p>
-  <p class="hero-note">每天彙整重要新聞事件，整理成事實、分析與後續觀察，協助你快速掌握全貌。</p>
+<section class="masthead">
+  <p class="masthead-eyebrow">Daily Edition</p>
+  <h1 class="masthead-title">{{ site.title }}</h1>
+  <p class="masthead-tagline">{{ site.description }}</p>
+  {% if latest %}
+    {% assign plain = latest.content | strip_html | strip_newlines %}
+    {% assign chars = plain | size %}
+    {% assign readmin = chars | divided_by: 400 %}
+    {% if readmin < 1 %}{% assign readmin = 1 %}{% endif %}
+    <p class="masthead-meta">
+      <time datetime="{{ latest.date | date: '%Y-%m-%d' }}">{{ latest.date | date: "%Y 年 %-m 月 %-d 日" }}</time>
+      <span class="meta-sep">·</span><span>Daily Edition</span>
+      <span class="meta-sep">·</span><span>{{ readmin }} min read</span>
+    </p>
+  {% endif %}
+  <p class="masthead-intro">每天彙整重要新聞事件，整理成事實、分析與後續觀察，協助你安靜地掌握今天發生了什麼。</p>
 </section>
 
 {% if sorted_summaries.size == 0 %}
@@ -19,38 +32,38 @@ description: 每日重要新聞、趨勢與影響分析
 </section>
 {% else %}
 
-{% assign latest = sorted_summaries.first %}
-<section class="latest-summary">
-  <h2 class="section-title">最新摘要</h2>
-  <article class="summary-article summary-article-embedded">
-    <header class="summary-header">
-      <p class="summary-date">{{ latest.date | date: "%Y 年 %m 月 %d 日" }}</p>
-      <h3 class="card-title"><a href="{{ latest.url | relative_url }}">{{ latest.title }}</a></h3>
-      {% if latest.description %}
-      <p class="summary-description">{{ latest.description }}</p>
-      {% endif %}
-    </header>
+<article class="lead-article">
+  <header class="lead-header">
+    <p class="lead-kicker">今日快報</p>
+    <h2 class="lead-title"><a href="{{ latest.url | relative_url }}">{{ latest.title }}</a></h2>
+    {% if latest.description %}
+    <p class="lead-standfirst">{{ latest.description }}</p>
+    {% endif %}
+  </header>
 
-    <div class="summary-body">
-      {{ latest.content }}
-    </div>
+  <div class="summary-body reading">
+    {{ latest.content }}
+  </div>
 
-    <p class="view-all"><a class="card-link" href="{{ latest.url | relative_url }}">查看本篇獨立頁面 →</a></p>
-  </article>
-</section>
+  <p class="read-more"><a href="{{ latest.url | relative_url }}">閱讀本期獨立頁面 →</a></p>
+</article>
 
-{% assign recent_summaries = sorted_summaries | offset: 1 | limit: 9 %}
+{% assign recent_summaries = sorted_summaries | offset: 1 | limit: 12 %}
 {% if recent_summaries.size > 0 %}
-<section class="recent-summaries">
-  <h2 class="section-title">最近摘要</h2>
-  <div class="card-grid">
+<section class="recent">
+  <div class="section-head">
+    <p class="section-eyebrow">Archive</p>
+    <h2 class="section-title">最近期數</h2>
+  </div>
+  <div class="edition-list">
     {% for summary in recent_summaries %}
-    <article class="card">
-      <p class="card-date">{{ summary.date | date: "%Y 年 %m 月 %d 日" }}</p>
-      <h3 class="card-title"><a href="{{ summary.url | relative_url }}">{{ summary.title }}</a></h3>
-      <p class="card-description">{{ summary.description }}</p>
-      <a class="card-link" href="{{ summary.url | relative_url }}">閱讀全文 →</a>
-    </article>
+    <a class="edition-row" href="{{ summary.url | relative_url }}">
+      <time class="edition-date" datetime="{{ summary.date | date: '%Y-%m-%d' }}">{{ summary.date | date: "%m / %d" }}</time>
+      <span class="edition-body">
+        <span class="edition-title">{{ summary.title }}</span>
+        <span class="edition-desc">{{ summary.description }}</span>
+      </span>
+    </a>
     {% endfor %}
   </div>
 </section>

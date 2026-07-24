@@ -1,11 +1,16 @@
 <footer class="site-footer">
-  <div class="container">
-    <p>
-      © <span id="footer-year">{{ site.time | date: "%Y" }}</span> {{ site.title }}。
+  <div class="container footer-inner">
+    <p class="footer-title">{{ site.title }}</p>
+    <p class="footer-desc">{{ site.description }}</p>
+    <nav class="footer-nav" aria-label="頁尾導覽">
+      <a href="{{ '/' | relative_url }}">Today</a>
+      <a href="{{ '/archive.html' | relative_url }}">Archive</a>
+      <a href="{{ '/about.html' | relative_url }}">About</a>
+      <a href="https://github.com/{{ site.github_username }}/{{ site.repository }}" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </nav>
+    <p class="footer-note">
       本網站內容由自動化分析流程產生，僅供參考，重要資訊請以原始來源為準。
     </p>
-    <p class="site-footer-links">
-      <a href="https://github.com/{{ site.github_username }}/{{ site.repository }}" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
-    </p>
+    <p class="footer-copy">© <span id="footer-year">{{ site.time | date: "%Y" }}</span> {{ site.title }}</p>
   </div>
 </footer>

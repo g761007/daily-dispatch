@@ -2,20 +2,32 @@
 layout: default
 ---
 <article class="summary-article">
+  <nav class="article-topnav">
+    <a class="btn-link" href="{{ '/' | relative_url }}">← 回首頁</a>
+  </nav>
+
   <header class="summary-header">
-    <p class="summary-date">{{ page.date | date: "%Y 年 %m 月 %d 日" }}</p>
+    {% assign plain = content | strip_html | strip_newlines %}
+    {% assign chars = plain | size %}
+    {% assign readmin = chars | divided_by: 400 %}
+    {% if readmin < 1 %}{% assign readmin = 1 %}{% endif %}
+    <p class="summary-meta">
+      <time datetime="{{ page.date | date: '%Y-%m-%d' }}">{{ page.date | date: "%Y 年 %-m 月 %-d 日" }}</time>
+      <span class="meta-sep">·</span><span>Daily Edition</span>
+      <span class="meta-sep">·</span><span>{{ readmin }} min read</span>
+    </p>
     <h1>{{ page.title }}</h1>
     {% if page.description %}
     <p class="summary-description">{{ page.description }}</p>
     {% endif %}
   </header>
 
-  <div class="summary-body">
+  <div class="summary-body reading">
     {{ content }}
   </div>
 
   <footer class="summary-footer">
     <a class="btn-link" href="{{ '/' | relative_url }}">← 回首頁</a>
-    <a class="btn-link" href="{{ '/archive.html' | relative_url }}">查看歷史摘要</a>
+    <a class="btn-link" href="{{ '/archive.html' | relative_url }}">查看歷史摘要 →</a>
   </footer>
 </article>

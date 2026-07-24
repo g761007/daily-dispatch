@@ -1,13 +1,10 @@
 <header class="site-header">
-  <div class="container site-header-inner">
-    <a class="site-title" href="{{ '/' | relative_url }}">
-      <span class="site-title-emoji" aria-hidden="true">📰</span>
-      {{ site.title }}
-    </a>
+  <div class="masthead-bar">
+    <a class="site-title" href="{{ '/' | relative_url }}">{{ site.title }}</a>
     <nav class="site-nav" aria-label="主要導覽">
-      <a href="{{ '/' | relative_url }}">首頁</a>
-      <a href="{{ '/archive.html' | relative_url }}">歷史摘要</a>
-      <a href="{{ '/about.html' | relative_url }}">關於</a>
+      <a href="{{ '/' | relative_url }}"{% if page.url == '/' %} aria-current="page"{% endif %}>Today</a>
+      <a href="{{ '/archive.html' | relative_url }}"{% if page.url contains 'archive' %} aria-current="page"{% endif %}>Archive</a>
+      <a href="{{ '/about.html' | relative_url }}"{% if page.url contains 'about' %} aria-current="page"{% endif %}>About</a>
     </nav>
   </div>
 </header>
