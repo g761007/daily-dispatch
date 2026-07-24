@@ -22,11 +22,20 @@ description: 每日重要新聞、趨勢與影響分析
 {% assign latest = sorted_summaries.first %}
 <section class="latest-summary">
   <h2 class="section-title">最新摘要</h2>
-  <article class="card card-featured">
-    <p class="card-date">{{ latest.date | date: "%Y 年 %m 月 %d 日" }}</p>
-    <h3 class="card-title"><a href="{{ latest.url | relative_url }}">{{ latest.title }}</a></h3>
-    <p class="card-description">{{ latest.description }}</p>
-    <a class="card-link" href="{{ latest.url | relative_url }}">閱讀全文 →</a>
+  <article class="summary-article summary-article-embedded">
+    <header class="summary-header">
+      <p class="summary-date">{{ latest.date | date: "%Y 年 %m 月 %d 日" }}</p>
+      <h3 class="card-title"><a href="{{ latest.url | relative_url }}">{{ latest.title }}</a></h3>
+      {% if latest.description %}
+      <p class="summary-description">{{ latest.description }}</p>
+      {% endif %}
+    </header>
+
+    <div class="summary-body">
+      {{ latest.content }}
+    </div>
+
+    <p class="view-all"><a class="card-link" href="{{ latest.url | relative_url }}">查看本篇獨立頁面 →</a></p>
   </article>
 </section>
 

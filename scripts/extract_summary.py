@@ -7,7 +7,8 @@
 
 行為：
     1. 讀取 site/_summaries/YYYY-MM-DD.md，移除 YAML Front Matter。
-    2. 只保留「今日重點」「今日趨勢」「明日觀察」三個區塊（不傳送完整五時段原文）。
+    2. 保留「本日笑話」（選填，沒有就略過）「今日重點」「今日趨勢」
+       「明日觀察」四個區塊（不傳送完整五時段原文）。
     3. 加入當日 GitHub Pages 網址。
     4. 做好 HTML escape（Telegram 使用 HTML 解析模式，不用 MarkdownV2）。
     5. 若總長度超過建議長度，先縮短「今日趨勢」「今日觀察」等次要區塊。
@@ -33,6 +34,7 @@ SOFT_TARGET = 3000  # 專案建議的目標長度
 SECTION_TRUNCATE_LIMIT = 700  # 縮短時，次要區塊最多保留的字元數
 
 SECTION_HEADINGS = {
+    "joke": "本日笑話",
     "highlights": "今日重點",
     "trends": "今日趨勢",
     "tomorrow": "明日觀察",
@@ -113,15 +115,24 @@ def pack_blocks(blocks: list[str], limit: int) -> list[str]:
 
 
 def build_messages(date_str: str, url: str, sections: dict[str, str]) -> list[str]:
-    escaped = {key: html_escape(value) if value else "本時段沒有可整理的內容。" for key, value in sections.items()}
+    # 「本日笑話」是選填區塊：舊的摘要檔案沒有這個小節、或該次排程忘記寫，
+    # 都不應該顯示「本時段沒有可整理的內容」這種新聞用語的預設文字，直接
+    # 整段省略即可。其他三個區塊維持原本「沒有內容就顯示提示文字」的行為。
+    joke_text = html_escape(sections.get("joke", "")) if sections.get("joke") else ""
+    required_keys = ("highlights", "trends", "tomorrow")
+    escaped = {
+        key: html_escape(sections[key]) if sections.get(key) else "本時段沒有可整理的內容。"
+        for key in required_keys
+    }
 
     lead = f"📰 {date_str} 每日新聞摘要\n{url}"
+    joke_block = f"【{SECTION_HEADINGS['joke']}】\n{joke_text}" if joke_text else None
     highlight_block = f"【{SECTION_HEADINGS['highlights']}】\n{escaped['highlights']}"
     trend_block = f"【{SECTION_HEADINGS['trends']}】\n{escaped['trends']}"
     tomorrow_block = f"【{SECTION_HEADINGS['tomorrow']}】\n{escaped['tomorrow']}"
     footer_block = f"完整內容：\n{url}"
 
-    full_blocks = [lead, highlight_block, trend_block, tomorrow_block, footer_block]
+    full_blocks = [lead, *([joke_block] if joke_block else []), highlight_block, trend_block, tomorrow_block, footer_block]
     full_text = "\n\n".join(full_blocks)
     if len(full_text) <= SOFT_TARGET:
         return [full_text]
@@ -133,6 +144,7 @@ def build_messages(date_str: str, url: str, sections: dict[str, str]) -> list[st
     }
     shortened_blocks = [
         lead,
+        *([joke_block] if joke_block else []),  # 本日笑話本來就很短，不需要再縮短
         f"【{SECTION_HEADINGS['highlights']}】\n{shortened_sections['highlights']}",
         f"【{SECTION_HEADINGS['trends']}】\n{shortened_sections['trends']}",
         f"【{SECTION_HEADINGS['tomorrow']}】\n{shortened_sections['tomorrow']}",
@@ -170,12 +182,15 @@ def main() -> None:
     body = strip_front_matter(content)
 
     sections = {
+        "joke": extract_section(body, SECTION_HEADINGS["joke"]),
         "highlights": extract_section(body, SECTION_HEADINGS["highlights"]),
         "trends": extract_section(body, SECTION_HEADINGS["trends"]),
         "tomorrow": extract_section(body, SECTION_HEADINGS["tomorrow"]),
     }
 
-    if not any(sections.values()):
+    # 「本日笑話」是選填區塊，缺少不代表整份摘要格式有問題；只要三個必要
+    # 區塊（今日重點／今日趨勢／明日觀察）至少有一個非空，就視為有效摘要。
+    if not any(sections[key] for key in ("highlights", "trends", "tomorrow")):
         c.die(f"site/_summaries/{date_str}.md 內容為空或格式不符，找不到任何區塊")
 
     page_url = f"{base_url}/daily/{date_str}/"
