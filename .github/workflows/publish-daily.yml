@@ -4,12 +4,15 @@ name: Publish Daily Summary
 # 也不會 checkout 或執行來自 Fork 的程式碼（沒有 pull_request / pull_request_target 觸發）。
 on:
   schedule:
-    # 00:00 UTC = 08:00 Asia/Taipei。
+    # 23:07 UTC = 07:07 Asia/Taipei（原本是 00:00 UTC / 08:00 Asia/Taipei，提前約 1 小時）。
+    # 刻意不排在整點（例如 23:00 UTC），因為 00:00 UTC 是全球排程最壅塞的時間點，
+    # GitHub 官方文件也建議避開整點以降低延遲或被跳過的機率
+    # （2026-07-25 就發生過整點排程過了一個多小時仍未觸發的狀況）。
     # 最後一次分析時段標記為「24:00」（節目表式記法，代表前一天最後一次），
-    # 實際觸發時刻是當天 00:00 Asia/Taipei，與本排程的 08:00 間隔約 8 小時，
+    # 實際觸發時刻是當天 00:00 Asia/Taipei，與本排程的 07:07 間隔約 7 小時，
     # 讓 GitHub Pages 的自動部署（見 deploy-pages.yml）有足夠時間完成，
     # 避免 Telegram 訊息內的網頁連結尚未部署完成。
-    - cron: "0 0 * * *"
+    - cron: "7 23 * * *"
   workflow_dispatch:
     inputs:
       date:
