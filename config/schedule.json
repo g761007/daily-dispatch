@@ -8,6 +8,6 @@
     "24:00"
   ],
   "final_slot": "24:00",
-  "publish_time": "08:00",
-  "publish_time_note": "publish_time 為當天（Asia/Taipei）正式發布 GitHub Actions 排程時間。「24:00」是節目表式記法，代表當日最後一次分析，實際觸發時刻是隔天 00:00 Asia/Taipei，但仍屬於前一個日曆日的最後彙整（見 docs/cowork-schedules.md 排程五）。發布排程固定在隔天 08:00 執行，與 24:00（=00:00）的分析之間約有 8 小時間隔，足夠讓 GitHub Pages 完成部署（README 建議至少間隔 30 分鐘）。GitHub Actions cron 對應設定為每日 UTC 00:00（Asia/Taipei 08:00），詳見 .github/workflows/publish-daily.yml 與 README「如何修改排程時段」。"
+  "publish_time": "07:07",
+  "publish_time_note": "publish_time 為當天（Asia/Taipei）正式發布 GitHub Actions 排程時間。「24:00」是節目表式記法，代表當日最後一次分析，實際觸發時刻是隔天 00:00 Asia/Taipei，但仍屬於前一個日曆日的最後彙整（見 docs/cowork-schedules.md 排程五）。發布排程固定在隔天 07:07 執行，刻意不排在整點 07:00 以避開 GitHub 排程最壅塞的整點時段，與 24:00（=00:00）的分析之間約有 7 小時間隔，足夠讓 GitHub Pages 完成部署（README 建議至少間隔 30 分鐘）。GitHub Actions cron 對應設定為每日 UTC 23:07（Asia/Taipei 07:07），詳見 .github/workflows/publish-daily.yml 與 README「如何修改排程時段」。"
 }

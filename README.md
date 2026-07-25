@@ -62,7 +62,7 @@ Claude Cowork 每日排程（Asia/Taipei）
                         ▼
               GitHub Pages 網站更新
                         │
-        （隔天 08:00 Asia/Taipei，此時 Pages 已部署完成超過 30 分鐘）
+        （隔天 07:07 Asia/Taipei，此時 Pages 已部署完成超過 30 分鐘）
                         ▼
         GitHub Actions：Publish Daily Summary
                         │
@@ -88,7 +88,7 @@ Claude Cowork 每日排程（Asia/Taipei）
    `reports/YYYY-MM-DD.md` 的狀態改成 `ready`。
 3. **網站部署**：`site/**` 有變更時，`deploy-pages.yml` 會自動建置 Jekyll 網站
    並部署到 GitHub Pages。這個 workflow **完全不會**接觸 Telegram Secrets。
-4. **正式發布**：`publish-daily.yml` 每天固定在 Asia/Taipei 08:00（對應「前一天」
+4. **正式發布**：`publish-daily.yml` 每天固定在 Asia/Taipei 07:07（對應「前一天」
    的摘要）執行，依序：驗證摘要完整 → 產生 Telegram 版本 → 傳送 Telegram →
    確認成功 → 建立已發布狀態檔 → commit + push。任何一步失敗，整個 workflow
    都會失敗，且**不會**建立已發布狀態、**不會**視為已發送。
@@ -162,7 +162,7 @@ daily-dispatch/
    - `reports/YYYY-MM-DD.md` 五個時段都有內容、狀態變成 `ready`。
    - `site/_summaries/YYYY-MM-DD.md` 已產生。
    - GitHub Pages 網站已顯示該篇摘要。
-   - 隔天 08:00（Asia/Taipei）`Publish Daily Summary` workflow 成功執行，
+   - 隔天 07:07（Asia/Taipei）`Publish Daily Summary` workflow 成功執行，
      Telegram 收到通知。
 
 ## 啟用 GitHub Pages
@@ -292,8 +292,9 @@ repository，不依賴本機資料夾或裝置連線。
    - 到 `docs/cowork-schedules.md`，把五份提示詞中的時段文字、slot 標記
      （`<!-- slot: HH:MM:start -->` 等）與 cron 對照表都同步更新。
    - 到 Claude 的 Scheduled Task 設定頁，更新對應排程的執行時間。
-3. 若要改變正式發布時間（目前預設 Asia/Taipei 08:00，與最後分析時段
-   24:00／實際隔天 00:00 相隔約 8 小時）：
+3. 若要改變正式發布時間（目前預設 Asia/Taipei 07:07——刻意不排在整點
+   07:00，避開 GitHub 排程最壅塞的整點時段——與最後分析時段 24:00／實際隔天
+   00:00 相隔約 7 小時）：
    - 修改 `.github/workflows/publish-daily.yml` 的 `schedule.cron`
      （記得 cron 是 UTC 時間，Asia/Taipei = UTC+8）。
    - 更新 `config/schedule.json` 的 `publish_time` 與 `publish_time_note`。
@@ -461,7 +462,7 @@ GitHub Actions 環境中）。
 
 **Q: Telegram 訊息裡的連結打開是 404？**
 A: 確認 `publish-daily.yml` 執行時間與 `deploy-pages.yml` 部署完成時間有
-足夠間隔（預設間隔約 8 小時，遠超過建議的 30 分鐘）。如果你調整了排程時間，
+足夠間隔（預設間隔約 7 小時，遠超過建議的 30 分鐘）。如果你調整了排程時間，
 請重新確認這個間隔是否仍然足夠。
 
 **Q: 想要暫停某一天的自動發送？**
