@@ -1,0 +1,6 @@
+# 這個檔案的唯一用途，是被「發布備援觸發」Scheduled Task 定期更新並 push，
+# 藉由 push 事件觸發 .github/workflows/publish-daily.yml（見該檔案 on.push
+# 的註解）。內容本身沒有實際意義，只是需要每次都不一樣才能產生真正的
+# git diff（沒有變更就不會有 commit，也就不會有 push、不會觸發 workflow）。
+#
+# last_triggered_at（UTC）：（尚未觸發）
