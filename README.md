@@ -54,18 +54,18 @@ Claude Cowork 每日排程（Asia/Taipei）
              └─ 將 reports 狀態改為 ready
                         │
               git push 到 main 分支
+              （新文章此時只在 repo 裡，網站還沒更新，尚未曝光）
                         │
                         ▼
-        GitHub Actions：Deploy GitHub Pages
-        （site/** 有變更時自動觸發）
-                        │
-                        ▼
-              GitHub Pages 網站更新
-                        │
-        （隔天 07:07 Asia/Taipei，此時 Pages 已部署完成超過 30 分鐘）
-                        ▼
+        （隔天 07:07 Asia/Taipei）
         GitHub Actions：Publish Daily Summary
                         │
+                        ▼
+      deploy_pages job：呼叫 deploy-pages.yml 建置並部署 GitHub Pages
+      （新文章從這一刻才真正上線，跟下面的 Telegram 通知同時發生）
+                        │
+                        ▼
+      publish job（等 deploy_pages 成功後才開始）：
              ┌──────────┴──────────┐
              ▼                     ▼
       驗證前一日摘要已 ready   （驗證失敗則整個 workflow 失敗，不發送）
@@ -86,12 +86,16 @@ Claude Cowork 每日排程（Asia/Taipei）
 2. **最終整理**：第五個排程（24:00，實際觸發於隔天 00:00）額外負責讀取當天全部五個時段內容，重新
    整理（不是直接拼接）成 `site/_summaries/YYYY-MM-DD.md`，並把
    `reports/YYYY-MM-DD.md` 的狀態改成 `ready`。
-3. **網站部署**：`site/**` 有變更時，`deploy-pages.yml` 會自動建置 Jekyll 網站
-   並部署到 GitHub Pages。這個 workflow **完全不會**接觸 Telegram Secrets。
+3. **網站部署**：`deploy-pages.yml` 不再由 push 自動觸發，只接受手動觸發，
+   或被 `publish-daily.yml` 以 `workflow_call` 呼叫。正式發布時（見下一步），
+   `publish-daily.yml` 的 `deploy_pages` job 會先呼叫它，把 main 分支目前的
+   `site/**` 內容建置並部署到 GitHub Pages，確保新文章跟 Telegram 通知同時
+   上線，不會提前曝光。這個 workflow **完全不會**接觸 Telegram Secrets。
 4. **正式發布**：`publish-daily.yml` 每天固定在 Asia/Taipei 07:07（對應「前一天」
-   的摘要）執行，依序：驗證摘要完整 → 產生 Telegram 版本 → 傳送 Telegram →
-   確認成功 → 建立已發布狀態檔 → commit + push。任何一步失敗，整個 workflow
-   都會失敗，且**不會**建立已發布狀態、**不會**視為已發送。
+   的摘要）執行，依序：**部署 GitHub Pages**（`deploy_pages` job）→ 驗證摘要
+   完整 → 產生 Telegram 版本 → 傳送 Telegram → 確認成功 → 建立已發布狀態檔 →
+   commit + push。任何一步失敗，整個 workflow 都會失敗，且**不會**建立已發布
+   狀態、**不會**視為已發送。
 
 ## 目錄結構
 
@@ -298,8 +302,10 @@ repository，不依賴本機資料夾或裝置連線。
    - 修改 `.github/workflows/publish-daily.yml` 的 `schedule.cron`
      （記得 cron 是 UTC 時間，Asia/Taipei = UTC+8）。
    - 更新 `config/schedule.json` 的 `publish_time` 與 `publish_time_note`。
-   - 請保留「最後分析時段」到「正式發布」之間至少 30 分鐘的間隔，讓
-     GitHub Pages 有時間完成部署（見 `publish-daily.yml` 內的註解）。
+   - 不需要再手動保留「最後分析時段」到「正式發布」之間的間隔來等 GitHub
+     Pages 部署完成——`publish-daily.yml` 的 `deploy_pages` job 會在每次執行
+     時自己呼叫 `deploy-pages.yml` 部署最新內容，部署與發布是同一次執行、
+     同一時間發生（見 `publish-daily.yml` 內的註解）。
 
 ## 新聞分類
 
@@ -402,10 +408,16 @@ unset TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID
 - `publish-daily.yml` 只接受 `schedule` 與 `workflow_dispatch` 觸發，**沒有**
   `pull_request` / `pull_request_target`，也不會 checkout 或執行外部 Fork 的
   程式碼，避免外部 PR 觸發 Telegram 發送。
-- `deploy-pages.yml`（Pages 部署）與 `publish-daily.yml`（Telegram 發布）是
-  **兩個獨立的 workflow**：Pages workflow 的 `permissions` 只有
-  `contents: read` / `pages: write` / `id-token: write`，完全不會、也不需要
-  存取 Telegram Secrets；Telegram workflow 也不需要 Pages 部署權限。
+- `deploy-pages.yml`（Pages 部署）與 `publish-daily.yml`（Telegram 發布）仍是
+  **兩個獨立的 workflow 檔案**，只是 `publish-daily.yml` 現在會以
+  `workflow_call` 的方式呼叫 `deploy-pages.yml`（透過 `deploy_pages` job）。
+  呼叫時只會傳遞 `contents: read` / `pages: write` / `id-token: write` 這三個
+  權限給它，`deploy-pages.yml` 本身完全不會、也不需要存取 Telegram Secrets；
+  實際送出 Telegram 的 `publish` job 則只有 `contents: write`，不需要也拿不到
+  Pages 部署權限。兩者權限仍是分開收斂，只是執行順序上有先後依賴。
+- `deploy-pages.yml` 已移除 `push` 觸發，只接受 `workflow_dispatch`（手動）
+  或 `workflow_call`（被 `publish-daily.yml` 呼叫），避免新文章在正式發布前
+  就因為 push 而提前上線。
 - 兩個 workflow 都設定了 `concurrency`，避免同一個 workflow 同時重複執行。
 
 ## Public Repository 會公開哪些內容
@@ -461,9 +473,13 @@ Secrets」，且排程本身也沒有被賦予讀取 GitHub Secrets 的權限（
 GitHub Actions 環境中）。
 
 **Q: Telegram 訊息裡的連結打開是 404？**
-A: 確認 `publish-daily.yml` 執行時間與 `deploy-pages.yml` 部署完成時間有
-足夠間隔（預設間隔約 7 小時，遠超過建議的 30 分鐘）。如果你調整了排程時間，
-請重新確認這個間隔是否仍然足夠。
+A: 2026-07-26 之後，`deploy-pages.yml` 已經改成由 `publish-daily.yml` 的
+`deploy_pages` job 呼叫（不再由 push 自動觸發），且 `publish` job 一定要等
+`deploy_pages` 成功後才會送出 Telegram，理論上不會再有「網站還沒部署完、
+連結先發出去」的情況。如果還是遇到 404，請到 Actions 頁面確認該次
+`Publish Daily Summary` 執行紀錄裡的 `deploy_pages` job 是否真的成功；也可以
+確認 `site/_config.yml` 的 `baseurl` 設定是否正確（見上面「GitHub Pages 顯示
+404」那一題）。
 
 **Q: 想要暫停某一天的自動發送？**
 A: 手動在該日期建立一個空的 `.state/published/YYYY-MM-DD` 檔案並 push，
