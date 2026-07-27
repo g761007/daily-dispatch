@@ -46,29 +46,26 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy_pages:
-    name: Deploy latest content to GitHub Pages
-    # 呼叫 deploy-pages.yml（reusable workflow）。這一步會把目前 main 分支上
-    # 已經存在的 site/** 內容（包含 24:00 排程稍早 push 的新文章）建置並部署
-    # 上線；下面 publish job 要等這個 job 成功後才會送出 Telegram，確保通知
-    # 送出時網站已經是最新版本。
-    uses: ./.github/workflows/deploy-pages.yml
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-
-  publish:
-    name: Validate, notify, and mark published
-    needs: deploy_pages
+  validate:
+    name: Resolve date and validate report/summary format
+    # 2026-07-26 曾發生：來源連結格式（[標題 | 來源](網址)）裡有未跳脫的 |，
+    # 被 kramdown 的 GFM 表格解析誤判成表格分隔符，導致連結顯示錯誤，且這個
+    # 問題是在網站已經部署上線之後才被發現。原本的驗證步驟（validate_report.py）
+    # 是排在 deploy_pages 之後執行，只能擋住 Telegram 通知與「標記已發布」，
+    # 擋不住錯誤內容已經部署上線這件事。
+    # 因此把驗證獨立成最先執行的 job：deploy_pages 現在 `needs: validate`，
+    # 只要這個 job 失敗（包含 validate_report.py 偵測到格式問題時），
+    # deploy_pages 與後面的 publish job都會被 GitHub Actions 自動跳過，
+    # 網站不會部署到有問題的內容，也不會送出對應的 Telegram 通知。
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
+    outputs:
+      date: ${{ steps.resolve_date.outputs.date }}
+      already: ${{ steps.check_published.outputs.already }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -111,29 +108,68 @@ jobs:
             echo "already=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Skip notice (already published)
-        if: steps.check_published.outputs.already == 'true'
-        run: |
-          echo "${{ steps.resolve_date.outputs.date }} 已經發布過，略過本次發布（不會重複傳送 Telegram）。"
-
       - name: Validate report and summary
         if: steps.check_published.outputs.already == 'false'
         run: |
           python scripts/validate_report.py --date "${{ steps.resolve_date.outputs.date }}"
 
+      - name: Skip notice (already published)
+        if: steps.check_published.outputs.already == 'true'
+        run: |
+          echo "${{ steps.resolve_date.outputs.date }} 已經發布過，略過格式驗證（不會重複部署或傳送 Telegram）。"
+
+  deploy_pages:
+    name: Deploy latest content to GitHub Pages
+    needs: validate
+    # 呼叫 deploy-pages.yml（reusable workflow）。這一步會把目前 main 分支上
+    # 已經存在的 site/** 內容（包含 24:00 排程稍早 push 的新文章）建置並部署
+    # 上線；下面 publish job 要等這個 job 成功後才會送出 Telegram，確保通知
+    # 送出時網站已經是最新版本。needs: validate 確保只有格式驗證通過（或當天
+    # 已經發布過、不需要重新驗證）才會真的部署。
+    uses: ./.github/workflows/deploy-pages.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+  publish:
+    name: Notify and mark published
+    needs: [validate, deploy_pages]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install script dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Skip notice (already published)
+        if: needs.validate.outputs.already == 'true'
+        run: |
+          echo "${{ needs.validate.outputs.date }} 已經發布過，略過本次發布（不會重複傳送 Telegram）。"
+
       - name: Extract Telegram-ready summary
-        if: steps.check_published.outputs.already == 'false'
+        if: needs.validate.outputs.already == 'false'
         id: extract
         run: |
           mkdir -p "$RUNNER_TEMP/telegram"
           python scripts/extract_summary.py \
-            --date "${{ steps.resolve_date.outputs.date }}" \
+            --date "${{ needs.validate.outputs.date }}" \
             --base-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" \
             --output-dir "$RUNNER_TEMP/telegram"
           echo "manifest=$RUNNER_TEMP/telegram/manifest.json" >> "$GITHUB_OUTPUT"
 
       - name: Send Telegram notification
-        if: steps.check_published.outputs.already == 'false'
+        if: needs.validate.outputs.already == 'false'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -141,18 +177,18 @@ jobs:
           python scripts/send_telegram.py --manifest "${{ steps.extract.outputs.manifest }}"
 
       - name: Mark date as published
-        if: steps.check_published.outputs.already == 'false'
+        if: needs.validate.outputs.already == 'false'
         run: |
           python scripts/mark_published.py \
-            --date "${{ steps.resolve_date.outputs.date }}" \
+            --date "${{ needs.validate.outputs.date }}" \
             --run-id "${{ github.run_id }}"
 
       - name: Commit and push published state
-        if: steps.check_published.outputs.already == 'false'
+        if: needs.validate.outputs.already == 'false'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ".state/published/${{ steps.resolve_date.outputs.date }}"
-          git commit -m "chore: mark ${{ steps.resolve_date.outputs.date }} summary as published"
+          git add ".state/published/${{ needs.validate.outputs.date }}"
+          git commit -m "chore: mark ${{ needs.validate.outputs.date }} summary as published"
           git pull --rebase origin "${{ github.ref_name }}"
           git push origin "HEAD:${{ github.ref_name }}"

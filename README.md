@@ -61,14 +61,18 @@ Claude Cowork 每日排程（Asia/Taipei）
         GitHub Actions：Publish Daily Summary
                         │
                         ▼
+      validate job：驗證前一日摘要已 ready、格式正確
+      （含連結文字不可含未跳脫的 | ——2026-07-26 曾發生這個問題造成網站顯示
+      錯誤，見下方「常見問題排除」；驗證失敗則整個 workflow 失敗，不部署、
+      不發送）
+                        │
+                        ▼
       deploy_pages job：呼叫 deploy-pages.yml 建置並部署 GitHub Pages
-      （新文章從這一刻才真正上線，跟下面的 Telegram 通知同時發生）
+      （新文章從這一刻才真正上線，跟下面的 Telegram 通知同時發生；
+      needs: validate，格式驗證沒過就不會部署）
                         │
                         ▼
       publish job（等 deploy_pages 成功後才開始）：
-             ┌──────────┴──────────┐
-             ▼                     ▼
-      驗證前一日摘要已 ready   （驗證失敗則整個 workflow 失敗，不發送）
              │
              ▼
       傳送 Telegram（僅發送最終摘要，不含五時段原文）
@@ -88,14 +92,18 @@ Claude Cowork 每日排程（Asia/Taipei）
    `reports/YYYY-MM-DD.md` 的狀態改成 `ready`。
 3. **網站部署**：`deploy-pages.yml` 不再由 push 自動觸發，只接受手動觸發，
    或被 `publish-daily.yml` 以 `workflow_call` 呼叫。正式發布時（見下一步），
-   `publish-daily.yml` 的 `deploy_pages` job 會先呼叫它，把 main 分支目前的
-   `site/**` 內容建置並部署到 GitHub Pages，確保新文章跟 Telegram 通知同時
-   上線，不會提前曝光。這個 workflow **完全不會**接觸 Telegram Secrets。
+   `publish-daily.yml` 的 `deploy_pages` job 會在格式驗證通過後呼叫它，把
+   main 分支目前的 `site/**` 內容建置並部署到 GitHub Pages，確保新文章跟
+   Telegram 通知同時上線，不會提前曝光。這個 workflow **完全不會**接觸
+   Telegram Secrets。
 4. **正式發布**：`publish-daily.yml` 每天固定在 Asia/Taipei 07:07（對應「前一天」
-   的摘要）執行，依序：**部署 GitHub Pages**（`deploy_pages` job）→ 驗證摘要
-   完整 → 產生 Telegram 版本 → 傳送 Telegram → 確認成功 → 建立已發布狀態檔 →
-   commit + push。任何一步失敗，整個 workflow 都會失敗，且**不會**建立已發布
-   狀態、**不會**視為已發送。
+   的摘要）執行，依序：**驗證摘要完整與格式**（`validate` job，見下方「常見
+   問題排除」關於連結格式的說明）→ **部署 GitHub Pages**（`deploy_pages` job，
+   `needs: validate`，驗證沒過就不會部署）→ 產生 Telegram 版本 → 傳送
+   Telegram → 確認成功 → 建立已發布狀態檔 → commit + push。任何一步失敗，
+   整個 workflow 都會失敗，且**不會**部署、**不會**建立已發布狀態、**不會**
+   視為已發送。2026-07-26 之前驗證是排在部署之後，只能擋住 Telegram 通知，
+   擋不住錯誤內容已經上線；現在改成先驗證才部署。
 
 ## 目錄結構
 
@@ -466,6 +474,20 @@ A: 檢查 `.state/published/YYYY-MM-DD` 是否真的存在且對應正確日期�
 A: 通常是 Project Pages 的路徑問題。請確認 `site/_config.yml` 的 `baseurl`
 設定為 `/daily-dispatch`（或你的實際 repository 名稱），且所有連結都使用
 `relative_url`（本專案的 layout / include / page 都已經這樣處理）。
+
+**Q: 網頁上的來源連結顯示破圖（標題變成純文字、只有一部分變成藍色連結）？**
+A: 2026-07-26 曾發生：來源格式若寫成 `[文章標題 | 來源名稱](網址)`，連結文字
+裡未跳脫的 `|` 會被網站使用的 kramdown（`site/_config.yml` 設定
+`kramdown: input: GFM`）誤判成表格分隔符，導致連結被切成兩半、只有含網址的
+那半段被轉成連結。這個問題現在有兩層防護：(1) 五個 Claude Cowork 排程的
+提示詞（`docs/cowork-schedules.md`）已明確要求連結文字不可包含 `|`，要分隔
+標題與來源一律用 `-`；(2) `validate_report.py` 會機械掃描 `reports/` 與
+`site/_summaries/` 裡的連結，偵測到未跳脫的 `|` 就直接擋下發布（見下方
+`publish-daily.yml` 的 `validate` job，這一步排在 `deploy_pages` 之前，格式
+有問題就不會部署上線）。如果還是看到這個問題，代表是舊文章（`validate`
+job 上線之前發布的），請直接修改對應的 `reports/YYYY-MM-DD.md` 與
+`site/_summaries/YYYY-MM-DD.md`，把 `|` 換成 `-` 後重新 commit + push，再手動
+觸發一次 `Deploy GitHub Pages`（`workflow_dispatch`）讓修正上線。
 
 **Q: 五個 Claude Cowork 排程會不會不小心把 Secrets 寫進 reports？**
 A: 五個排程提示詞（`docs/cowork-schedules.md`）明確要求「不得寫入任何

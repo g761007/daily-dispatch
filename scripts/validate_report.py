@@ -17,6 +17,13 @@
     4. site/_summaries/YYYY-MM-DD.md 是否存在。
     5. 公開摘要的 YAML Front Matter 是否包含必要欄位。
     6. 公開摘要內文是否非空。
+    7. reports/YYYY-MM-DD.md 與 site/_summaries/YYYY-MM-DD.md 裡的 Markdown
+       連結，連結文字（[ ] 中間的文字）不可包含未跳脫的 | 符號——網站用
+       kramdown 的 GFM 模式解析，行內未跳脫的 | 會被誤判成表格分隔符，導致
+       連結被切成兩半、顯示錯誤（2026-07-26 發生過實際案例：
+       `[標題 | 來源](網址)` 被誤判成表格，只有含網址的那半段被轉成連結）。
+       這一項檢查是最後一道防線：即使排程 prompt 已經要求一律用「-」分隔，
+       AI 生成內容仍可能不遵守，所以用機械規則擋下，而不是只靠提示詞。
 
 任何一項失敗都會印出清楚但「不含 Secrets」的錯誤訊息，並以非零 Exit Code 結束。
 """
@@ -32,6 +39,19 @@ import _common as c
 
 
 REQUIRED_FRONT_MATTER_KEYS = ["title", "date", "description", "layout", "published"]
+
+# 只比對「看起來像 Markdown 連結」的那一段（[ 開頭、] 結尾、緊接著 (），避免
+# 誤判內文中純粹當作強調符號使用、但沒有構成連結的 | 字元。
+LINK_WITH_PIPE_PATTERN = re.compile(r"\[[^\[\]\n]*\|[^\[\]\n]*\]\(")
+
+
+def find_links_with_pipe(content: str) -> list[str]:
+    """找出連結文字中包含未跳脫 | 的 Markdown 連結所在行（用於錯誤訊息定位）。"""
+    problems = []
+    for lineno, line in enumerate(content.splitlines(), start=1):
+        if LINK_WITH_PIPE_PATTERN.search(line):
+            problems.append(f"  第 {lineno} 行：{line.strip()}")
+    return problems
 
 
 def split_front_matter(content: str) -> tuple[dict, str] | None:
@@ -58,6 +78,14 @@ def validate(date_str: str) -> None:
         c.die(f"找不到 reports/{date_str}.md，尚未開始今日分析")
 
     content = c.read_text(report_file)
+
+    report_pipe_links = find_links_with_pipe(content)
+    if report_pipe_links:
+        c.die(
+            f"reports/{date_str}.md 有連結文字包含未跳脫的 | 符號，會被 kramdown "
+            "誤判為表格分隔符，導致連結顯示錯誤，請改用「-」分隔標題與來源：\n"
+            + "\n".join(report_pipe_links)
+        )
 
     missing = c.missing_slots(content)
 
@@ -89,6 +117,15 @@ def validate(date_str: str) -> None:
         c.die(f"找不到 site/_summaries/{date_str}.md，最終摘要尚未產生")
 
     summary_content = c.read_text(summary_file)
+
+    summary_pipe_links = find_links_with_pipe(summary_content)
+    if summary_pipe_links:
+        c.die(
+            f"site/_summaries/{date_str}.md 有連結文字包含未跳脫的 | 符號，會被 "
+            "kramdown 誤判為表格分隔符，導致連結顯示錯誤，請改用「-」分隔標題與"
+            "來源：\n" + "\n".join(summary_pipe_links)
+        )
+
     parsed = split_front_matter(summary_content)
     if parsed is None:
         c.die(f"site/_summaries/{date_str}.md 缺少 YAML Front Matter")
