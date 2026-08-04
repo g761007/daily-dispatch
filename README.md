@@ -5,6 +5,8 @@ daily-dispatch 是一個「每日新聞分析與摘要」自動化系統：每�
 最終每日摘要，透過 **GitHub Pages** 公開發布，並在每天固定時間以 **GitHub
 Actions** 驗證、經由 **Telegram Bot** 發送一次通知。
 
+Build your own AI-powered Daily Briefing platform with GitHub Actions, Markdown, GitHub Pages, and Telegram.
+
 > ⚠️ 本 repository 預設為 **Public**。請務必先閱讀下方
 > [安全注意事項](#安全注意事項) 與
 > [Public Repository 會公開哪些內容](#public-repository-會公開哪些內容)。
