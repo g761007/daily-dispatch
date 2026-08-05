@@ -9,5 +9,5 @@
   ],
   "final_slot": "24:00",
   "publish_time": "07:07",
-  "publish_time_note": "publish_time 為當天（Asia/Taipei）正式發布 GitHub Actions 排程時間。「24:00」是節目表式記法，代表當日最後一次分析，實際觸發時刻是隔天 00:00 Asia/Taipei，但仍屬於前一個日曆日的最後彙整（見 docs/cowork-schedules.md 排程五）。發布排程固定在隔天 07:07 執行，刻意不排在整點 07:00 以避開 GitHub 排程最壅塞的整點時段。2026-07-26 起，GitHub Pages 部署已經改成由 publish-daily.yml 的 deploy_pages job 呼叫 deploy-pages.yml（不再由 push 自動觸發），部署與 Telegram 發布是同一次執行、同時發生，不再需要靠時間間隔來確保 Pages 已部署完成。GitHub Actions cron 對應設定為每日 UTC 23:07（Asia/Taipei 07:07），詳見 .github/workflows/publish-daily.yml、.github/workflows/deploy-pages.yml 與 README「如何修改排程時段」。"
+  "publish_time_note": "publish_time 為當天（Asia/Taipei）正式發布時間。「24:00」是節目表式記法，代表當日最後一次分析，實際觸發時刻是隔天 00:00 Asia/Taipei，但仍屬於前一個日曆日的最後彙整（見 docs/cloud-schedules.md 排程五）。2026-08 起，所有排程（五個內容分析 + 一個發布觸發）都改由 Claude Code 雲端排程（routines）執行，跑在 Anthropic 雲端環境、以原生 git push 寫回 main，不再依賴任何裝置連線、也不再需要 GitHub Personal Access Token。正式發布（驗證摘要 + 部署 GitHub Pages + 發送 Telegram）仍由 GitHub Actions 的 publish-daily.yml 負責（因為需要 GitHub Secrets），但觸發它的『排程』已從 GitHub 原生 schedule cron（長期延遲、甚至整次被跳過）改為：發布 routine 每天 07:07 在雲端 push .github/publish-trigger，藉由 workflow 的 on.push 觸發。publish-daily.yml 已移除 schedule cron，只保留 workflow_dispatch（手動補發）與 on.push（發布 routine 觸發）。此檔僅供文件用途／人工參考，修改不會自動改變實際排程；實際排程需到 claude.ai/code/routines（或用 Claude Code 排程工具）同步調整。"
 }

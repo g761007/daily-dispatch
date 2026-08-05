@@ -26,6 +26,6 @@
       "flag_notable_volatility": true
     }
   ],
-  "note": "這四大類別是五個 Claude Cowork 分析排程（見 docs/cowork-schedules.md）搜尋與整理新聞時的主軸分類，也就是每個時段 reports/YYYY-MM-DD.md 中『### 重要更新』區塊底下四個小節的順序與定義；24:00 排程彙整的最終摘要（site/_summaries/YYYY-MM-DD.md）的『## 重要事件』一節也依同樣四個類別整理。這份設定檔目前是「文件用途」（供撰寫排程提示詞與人工參考），並非由程式自動讀取；若要調整類別，除了修改這個檔案，也要同步更新 docs/cowork-schedules.md 五份提示詞中對應的分類小節，並視情況更新已建立的 5 個 Claude Cowork Scheduled Task 內容。",
+  "note": "這四大類別是五個雲端分析排程 routine（見 docs/cloud-schedules.md）搜尋與整理新聞時的主軸分類，也就是每個時段 reports/YYYY-MM-DD.md 中『### 重要更新』區塊底下四個小節的順序與定義；24:00 排程彙整的最終摘要（site/_summaries/YYYY-MM-DD.md）的『## 重要事件』一節也依同樣四個類別整理。這份設定檔目前是「文件用途」（供撰寫排程 prompt 與人工參考），並非由程式自動讀取；若要調整類別，除了修改這個檔案，也要同步更新 docs/cloud-schedules.md 中對應的分類小節，並到 https://claude.ai/code/routines 更新相關 routine 的 prompt。",
   "flag_notable_volatility_hint": "financial 類別若股市、匯率或重大經濟數據出現明顯波動，排程提示詞會要求在事件標題前加註「⚠️ 波動」並於內容中說明波動幅度與可能原因。"
 }

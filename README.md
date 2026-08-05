@@ -1,9 +1,10 @@
 # daily-dispatch
 
-daily-dispatch 是一個「每日新聞分析與摘要」自動化系統：每天由 Claude Cowork
+daily-dispatch 是一個「每日新聞分析與摘要」自動化系統：每天由 **Claude Code 雲端排程（routines）**
 在五個固定時段搜尋、分析新聞並累積寫入當日檔案，最後一個時段結束後整理成一份
 最終每日摘要，透過 **GitHub Pages** 公開發布，並在每天固定時間以 **GitHub
-Actions** 驗證、經由 **Telegram Bot** 發送一次通知。
+Actions** 驗證、經由 **Telegram Bot** 發送一次通知。所有排程都跑在 Anthropic
+雲端環境、以原生 git push 寫回 repository，不依賴任何裝置連線、也不需要 Personal Access Token。
 
 Build your own AI-powered Daily Briefing platform with GitHub Actions, Markdown, GitHub Pages, and Telegram.
 
@@ -23,8 +24,7 @@ Build your own AI-powered Daily Briefing platform with GitHub Actions, Markdown,
 - [建立 Telegram Bot](#建立-telegram-bot)
 - [如何取得 Chat ID](#如何取得-chat-id)
 - [設定 GitHub Secrets](#設定-github-secrets)
-- [設定 Cowork 排程用的 GitHub Personal Access Token](#設定-cowork-排程用的-github-personal-access-token)
-- [設定 Claude Cowork 五個排程](#設定-claude-cowork-五個排程)
+- [設定 Claude Code 雲端排程（六個 routines）](#設定-claude-code-雲端排程六個-routines)
 - [如何修改排程時段](#如何修改排程時段)
 - [如何手動補發指定日期](#如何手動補發指定日期)
 - [如何避免重複發送](#如何避免重複發送)
@@ -40,7 +40,7 @@ Build your own AI-powered Daily Briefing platform with GitHub Actions, Markdown,
 ## 系統架構圖
 
 ```
-Claude Cowork 每日排程（Asia/Taipei）
+Claude Code 雲端排程 routines（Asia/Taipei，跑在 Anthropic 雲端、原生 git push）
         │
         ├─ 排程一 05:00：分析並更新當日累積檔案
         ├─ 排程二 10:00：分析並更新當日累積檔案
@@ -55,12 +55,15 @@ Claude Cowork 每日排程（Asia/Taipei）
              │   時段會在摘要中明確註明）
              └─ 將 reports 狀態改為 ready
                         │
-              git push 到 main 分支
+              git push 到 main 分支（雲端原生 push，無需 PAT）
               （新文章此時只在 repo 裡，網站還沒更新，尚未曝光）
                         │
                         ▼
         （隔天 07:07 Asia/Taipei）
-        GitHub Actions：Publish Daily Summary
+        發布 routine 在雲端 push .github/publish-trigger
+                        │
+                        ▼
+        GitHub Actions：Publish Daily Summary（由上面的 push 觸發）
                         │
                         ▼
       validate job：驗證前一日摘要已 ready、格式正確
@@ -86,9 +89,10 @@ Claude Cowork 每日排程（Asia/Taipei）
 
 ## 資料流程
 
-1. **內容產製**：Claude Cowork 在五個時段負責「內容分析」，直接寫入
-   `reports/YYYY-MM-DD.md` 並 push 到 GitHub。這一步**不會**用到任何 Secrets，
-   也**不會**呼叫 Telegram 或觸發正式發布 workflow。
+1. **內容產製**：五個 Claude Code 雲端排程 routines 在五個時段負責「內容分析」，
+   在 Anthropic 雲端環境中直接寫入 `reports/YYYY-MM-DD.md` 並以原生 git push 寫回
+   GitHub（不需要 PAT、不依賴裝置連線）。這一步**不會**用到任何 Secrets，也**不會**
+   呼叫 Telegram 或觸發正式發布 workflow。
 2. **最終整理**：第五個排程（24:00，實際觸發於隔天 00:00）額外負責讀取當天全部五個時段內容，重新
    整理（不是直接拼接）成 `site/_summaries/YYYY-MM-DD.md`，並把
    `reports/YYYY-MM-DD.md` 的狀態改成 `ready`。
@@ -98,8 +102,9 @@ Claude Cowork 每日排程（Asia/Taipei）
    main 分支目前的 `site/**` 內容建置並部署到 GitHub Pages，確保新文章跟
    Telegram 通知同時上線，不會提前曝光。這個 workflow **完全不會**接觸
    Telegram Secrets。
-4. **正式發布**：`publish-daily.yml` 每天固定在 Asia/Taipei 07:07（對應「前一天」
-   的摘要）執行，依序：**驗證摘要完整與格式**（`validate` job，見下方「常見
+4. **正式發布**：`publish-daily.yml` 由「發布 routine」在 Asia/Taipei 07:07
+   （對應「前一天」的摘要）於雲端 push `.github/publish-trigger` 觸發（已移除
+   GitHub 原生 schedule cron，因其長期延遲甚至整次被跳過），依序：**驗證摘要完整與格式**（`validate` job，見下方「常見
    問題排除」關於連結格式的說明）→ **部署 GitHub Pages**（`deploy_pages` job，
    `needs: validate`，驗證沒過就不會部署）→ 產生 Telegram 版本 → 傳送
    Telegram → 確認成功 → 建立已發布狀態檔 → commit + push。任何一步失敗，
@@ -149,7 +154,7 @@ daily-dispatch/
 │   └── mark_published.py
 │
 ├── docs/
-│   └── cowork-schedules.md        五份可直接使用的 Claude Cowork 排程提示詞
+│   └── cloud-schedules.md         六個 Claude Code 雲端排程 routine 的說明與 prompt
 │
 ├── .state/
 │   └── published/                 已發布狀態檔（避免重複發送）
@@ -170,8 +175,8 @@ daily-dispatch/
 4. 建立 Telegram Bot 並取得 Token 與 Chat ID（見下方兩節）。
 5. 到 **Settings → Secrets and variables → Actions**，新增
    `TELEGRAM_BOT_TOKEN` 與 `TELEGRAM_CHAT_ID` 兩個 Secrets。
-6. 依照 [設定 Claude Cowork 五個排程](#設定-claude-cowork-五個排程) 建立五個
-   排程任務。
+6. 依照 [設定 Claude Code 雲端排程（六個 routines）](#設定-claude-code-雲端排程六個-routines)
+   確認六個雲端排程 routine 都已啟用（新專案可依該節在 claude.ai/code/routines 建立）。
 7. 等待第一個完整的一天跑完（或手動先跑一次），確認：
    - `reports/YYYY-MM-DD.md` 五個時段都有內容、狀態變成 `ready`。
    - `site/_summaries/YYYY-MM-DD.md` 已產生。
@@ -245,72 +250,62 @@ secret**，新增兩個 Secrets：
 `${{ secrets.TELEGRAM_BOT_TOKEN }}` / `${{ secrets.TELEGRAM_CHAT_ID }}` 這種
 方式引用，不會出現在任何檔案、commit 或 workflow log 中。
 
-## 設定 Cowork 排程用的 GitHub Personal Access Token
+## 設定 Claude Code 雲端排程（六個 routines）
 
-五個 Claude Cowork 排程需要自己 push 到 GitHub，跟上面的 `TELEGRAM_BOT_TOKEN`
-是完全不同的機制——**這個 token 不是放進 GitHub Secrets**，而是放進每個
-Scheduled Task 的 prompt 設定裡（原因與取捨見下方說明）。
+2026-08 起，所有排程都改用 **Claude Code 雲端排程（routines）**，跑在 Anthropic
+雲端環境。每個 routine 觸發時會自動 clone 這個 repository、在雲端執行、再用
+**原生 git push** 寫回 `main`。因此：
 
-**為什麼需要它**：Cowork 排程常常在無人值守的時段觸發（例如凌晨）。如果排程
-的 push 依賴「當下裝置／桌面 App 是否連線」，裝置沒連線時 push 就會失敗——
-內容分析與 commit 可能都成功了，但完全沒有推送到 GitHub，隔天也不會被發現。
-因此每個排程一律在雲端工作區用「帶 token 的 HTTPS URL」全新 clone
-repository，不依賴本機資料夾或裝置連線。
+- **不需要 GitHub Personal Access Token**：push 認證由 claude.ai 綁定的 GitHub
+  連線處理，不必再把任何 token 貼進排程設定（舊版曾在排程 prompt 裡放 PAT，
+  已全面移除）。
+- **不依賴裝置連線**：排程完全在雲端執行，凌晨或無人值守時段也能穩定 push，
+  不會因為本機／桌面 App 沒連線而 push 失敗（這是舊版最主要的失敗原因）。
 
-**建立步驟**：
+共六個 routine：
 
-1. 到 <https://github.com/settings/personal-access-tokens/new>（Fine-grained
-   personal access tokens，不是 Classic token）。
-2. Token name：例如 `daily-dispatch-cowork-push`。
-3. Expiration：建議 90 天或 1 年，並記下到期日——到期後排程會 push 失敗，需要
-   重新產生一組並更新五個 Scheduled Task。
-4. Repository access：選 **Only select repositories**，選擇 `daily-dispatch`。
-5. Permissions → Repository permissions：只開 **Contents: Read and write**，
-   其他一律維持 No access（最小權限）。
-6. 產生後複製 token（格式類似 `github_pat_xxxxx...`），貼到
-   `docs/cowork-schedules.md` 五份提示詞裡 `<GITHUB_PAT>` 的位置，再把完整的
-   提示詞內容貼進對應的 Scheduled Task。
+| routine | Asia/Taipei | cron（UTC） | 工作 |
+| --- | --- | --- | --- |
+| 📰 每日新聞分析 1/5 | 05:00 | `0 21 * * *` | 內容分析，寫入 reports |
+| 📰 每日新聞分析 2/5 | 10:00 | `0 2 * * *` | 內容分析 |
+| 📰 每日新聞分析 3/5 | 15:00 | `0 7 * * *` | 內容分析 |
+| 📰 每日新聞分析 4/5 | 20:00 | `0 12 * * *` | 內容分析 |
+| 📰 每日新聞分析 5/5＋最終摘要 | 隔天 00:00（記為 24:00） | `0 16 * * *` | 24:00 分析＋產生最終摘要＋標記 ready |
+| 📮 每日發布觸發 | 07:07 | `7 23 * * *` | push `.github/publish-trigger` 觸發正式發布 |
 
-**安全注意事項**：
+管理方式：
 
-- 這個 token **絕對不可以**寫進 repository 的任何檔案（`docs/cowork-schedules.md`
-  裡的 `<GITHUB_PAT>` 只是佔位符）、不可以出現在 commit、log 或任何輸出中。
-- 它只會存在於 Scheduled Task 自己的 prompt 設定裡，只有你自己看得到——但這跟
-  `TELEGRAM_BOT_TOKEN` 存放在 GitHub Actions Secrets（有加密、不會明文顯示）
-  是不同等級的保護，算是為了讓排程能穩定運作所做的取捨。如果在意，可以定期
-  更換這組 token，或改成讓排程在你自己電腦上執行（見
-  [如何修改排程時段](#如何修改排程時段) 前的說明，需要電腦在排程時間保持開機
-  並與 Claude 桌面 App 連線）。
-- 權限僅限 `daily-dispatch` 這一個 repository、且只有 Contents 讀寫，即使
-  外洩，影響範圍也僅止於這個 repo 的內容，不會波及你 GitHub 帳號的其他部分。
-
-## 設定 Claude Cowork 五個排程
-
-1. 打開 `docs/cowork-schedules.md`，裡面有五份完整、可直接複製的排程提示詞
-   （對應 05:00 / 10:00 / 15:00 / 20:00 / 24:00，Asia/Taipei；「24:00」代表當天
-   最後一次，實際觸發時刻是隔天 00:00，文件內有詳細的日期換算說明）。每份都要
-   把 `<GITHUB_PAT>` 換成上一節建立的真實 token 再貼上。
-2. 在 Claude 建立 5 個 Scheduled Task，各自貼上對應的提示詞，並依文件內建議的
-   cron（UTC 時間）設定排程頻率為「每天一次」。
-3. 五個排程只負責「內容分析、寫入 reports、產生最終摘要」，**不會**接觸
-   Telegram 或任何 Secrets——這些交給 GitHub Actions 處理，職責分離、降低
+1. 到 <https://claude.ai/code/routines> 檢視、編輯、啟用/停用或手動執行這些
+   routine（也可以用 Claude Code 的排程工具 / RemoteTrigger API 管理）。
+2. 每個 routine 的設定包含：`environment_id`（Anthropic 雲端環境）、
+   `session_context.sources`（指向本 repository，觸發時自動 clone）、
+   `allowed_tools`（Bash / Read / Write / Edit / Glob / Grep / WebSearch / WebFetch；
+   發布觸發 routine 只需前四個），以及該時段的 prompt。各 routine 的 prompt
+   全文與格式規範見 [`docs/cloud-schedules.md`](docs/cloud-schedules.md)。
+3. 五個內容 routine 只負責「內容分析、寫入 reports、產生最終摘要」，**不會**
+   接觸 Telegram 或任何 Secrets——這些交給 GitHub Actions 處理，職責分離、降低
    Secrets 外洩風險。
+
+> **注意**：routines 無法用 API 刪除，只能到 <https://claude.ai/code/routines>
+> 手動刪除；若曾在舊版設定裡放過 PAT，建議到 GitHub 撤銷該 token（見
+> [安全注意事項](#安全注意事項)）。
 
 ## 如何修改排程時段
 
 1. `config/schedule.json` 是排程時段的「文件用途」設定檔，修改
    `analysis_slots` / `final_slot` 只是更新文件紀錄，**不會**自動改變實際排程
-   時間（Claude Cowork 排程與 GitHub Actions cron 都需要手動同步修改）。
+   時間（雲端 routine 需要到 claude.ai/code/routines 手動同步修改 cron）。
 2. 若要改變五個分析時段：
    - 修改 `config/schedule.json` 的 `analysis_slots` 與 `final_slot`。
-   - 到 `docs/cowork-schedules.md`，把五份提示詞中的時段文字、slot 標記
+   - 到 `docs/cloud-schedules.md`，把對應時段文字、slot 標記
      （`<!-- slot: HH:MM:start -->` 等）與 cron 對照表都同步更新。
-   - 到 Claude 的 Scheduled Task 設定頁，更新對應排程的執行時間。
-3. 若要改變正式發布時間（目前預設 Asia/Taipei 07:07——刻意不排在整點
-   07:00，避開 GitHub 排程最壅塞的整點時段——與最後分析時段 24:00／實際隔天
-   00:00 相隔約 7 小時）：
-   - 修改 `.github/workflows/publish-daily.yml` 的 `schedule.cron`
-     （記得 cron 是 UTC 時間，Asia/Taipei = UTC+8）。
+   - 到 <https://claude.ai/code/routines> 更新對應 routine 的 cron 與 prompt。
+3. 若要改變正式發布時間（目前預設 Asia/Taipei 07:07，與最後分析時段 24:00／
+   實際隔天 00:00 相隔約 7 小時）：
+   - 到 <https://claude.ai/code/routines> 修改「📮 每日發布觸發」routine 的 cron
+     （UTC 時間，Asia/Taipei = UTC+8；07:07 對應 `7 23 * * *`）。
+     `publish-daily.yml` 本身已無 schedule cron，由這個 routine push
+     `.github/publish-trigger` 觸發，不需要改 workflow。
    - 更新 `config/schedule.json` 的 `publish_time` 與 `publish_time_note`。
    - 不需要再手動保留「最後分析時段」到「正式發布」之間的間隔來等 GitHub
      Pages 部署完成——`publish-daily.yml` 的 `deploy_pages` job 會在每次執行
@@ -319,7 +314,7 @@ repository，不依賴本機資料夾或裝置連線。
 
 ## 新聞分類
 
-五個 Cowork 分析排程搜尋與整理內容時，一律以四大類別為主軸（定義同時記錄在
+五個雲端分析 routine 搜尋與整理內容時，一律以四大類別為主軸（定義同時記錄在
 [`config/categories.json`](config/categories.json)，僅供文件用途／人工參考，
 不會被程式自動讀取）：
 
@@ -333,10 +328,8 @@ repository，不依賴本機資料夾或裝置連線。
 「## 重要事件」一節也依同樣四個類別整理。若要調整分類：
 
 1. 修改 `config/categories.json`。
-2. 同步修改 `docs/cowork-schedules.md` 五份提示詞中對應的分類小節（以及最終
-   摘要範本）。
-3. 到 Claude 的 Scheduled Task 設定頁，把 5 個排程的 prompt 內容更新為修改後
-   的版本（記得把 `<GITHUB_PAT>` 換回實際 token）。
+2. 同步修改 `docs/cloud-schedules.md` 中對應的分類小節（以及最終摘要範本）。
+3. 到 <https://claude.ai/code/routines> 把相關 routine 的 prompt 更新為修改後的版本。
 
 ## 如何手動補發指定日期
 
@@ -415,9 +408,10 @@ unset TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID
   `curl -v` 等可能洩漏 Secrets 的指令。
 - `scripts/send_telegram.py` 刻意不輸出完整 Telegram API URL（因為 URL 本身
   包含 Token），錯誤訊息也會用正規表示式遮蔽任何長得像 Bot Token 的字串。
-- `publish-daily.yml` 只接受 `schedule` 與 `workflow_dispatch` 觸發，**沒有**
-  `pull_request` / `pull_request_target`，也不會 checkout 或執行外部 Fork 的
-  程式碼，避免外部 PR 觸發 Telegram 發送。
+- `publish-daily.yml` 只接受 `workflow_dispatch`（手動補發）與 `push`（發布
+  routine 更新 `.github/publish-trigger`）兩種觸發，**沒有** `schedule`、也沒有
+  `pull_request` / `pull_request_target`，不會 checkout 或執行外部 Fork 的程式碼，
+  避免外部 PR 觸發 Telegram 發送。
 - `deploy-pages.yml`（Pages 部署）與 `publish-daily.yml`（Telegram 發布）仍是
   **兩個獨立的 workflow 檔案**，只是 `publish-daily.yml` 現在會以
   `workflow_call` 的方式呼叫 `deploy-pages.yml`（透過 `deploy_pages` job）。
@@ -481,8 +475,8 @@ A: 通常是 Project Pages 的路徑問題。請確認 `site/_config.yml` 的 `b
 A: 2026-07-26 曾發生：來源格式若寫成 `[文章標題 | 來源名稱](網址)`，連結文字
 裡未跳脫的 `|` 會被網站使用的 kramdown（`site/_config.yml` 設定
 `kramdown: input: GFM`）誤判成表格分隔符，導致連結被切成兩半、只有含網址的
-那半段被轉成連結。這個問題現在有兩層防護：(1) 五個 Claude Cowork 排程的
-提示詞（`docs/cowork-schedules.md`）已明確要求連結文字不可包含 `|`，要分隔
+那半段被轉成連結。這個問題現在有兩層防護：(1) 五個雲端分析 routine 的
+prompt（`docs/cloud-schedules.md`）已明確要求連結文字不可包含 `|`，要分隔
 標題與來源一律用 `-`；(2) `validate_report.py` 會機械掃描 `reports/` 與
 `site/_summaries/` 裡的連結，偵測到未跳脫的 `|` 就直接擋下發布（見下方
 `publish-daily.yml` 的 `validate` job，這一步排在 `deploy_pages` 之前，格式
@@ -491,10 +485,10 @@ job 上線之前發布的），請直接修改對應的 `reports/YYYY-MM-DD.md` 
 `site/_summaries/YYYY-MM-DD.md`，把 `|` 換成 `-` 後重新 commit + push，再手動
 觸發一次 `Deploy GitHub Pages`（`workflow_dispatch`）讓修正上線。
 
-**Q: 五個 Claude Cowork 排程會不會不小心把 Secrets 寫進 reports？**
-A: 五個排程提示詞（`docs/cowork-schedules.md`）明確要求「不得寫入任何
-Secrets」，且排程本身也沒有被賦予讀取 GitHub Secrets 的權限（Secrets 只存在
-GitHub Actions 環境中）。
+**Q: 五個雲端分析 routine 會不會不小心把 Secrets 寫進 reports？**
+A: 各 routine 的 prompt（見 `docs/cloud-schedules.md`）明確要求「不得寫入任何
+Secrets」，且 routine 本身也沒有被賦予讀取 GitHub Secrets 的權限（Secrets 只存在
+GitHub Actions 環境中；雲端 routine 也不需要 PAT）。
 
 **Q: Telegram 訊息裡的連結打開是 404？**
 A: 2026-07-26 之後，`deploy-pages.yml` 已經改成由 `publish-daily.yml` 的

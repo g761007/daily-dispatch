@@ -22,7 +22,7 @@ PUBLISHED_DIR = REPO_ROOT / ".state" / "published"
 
 # 每日五個固定分析時段（Asia/Taipei）。
 # 「24:00」是傳統節目表式的記法，代表「當天最後一次」，實際觸發時刻是隔天 00:00，
-# 但邏輯上仍歸屬於前一個日曆日（見 docs/cowork-schedules.md 排程五的日期換算說明）。
+# 但邏輯上仍歸屬於前一個日曆日（見 docs/cloud-schedules.md 排程五的日期換算說明）。
 SLOTS = ["05:00", "10:00", "15:00", "20:00", "24:00"]
 FINAL_SLOT = "24:00"
 
@@ -126,6 +126,6 @@ def missing_slots(content: str) -> list[str]:
     失敗、只留下一對空標記）。兩種情況都視為「這個時段沒有可用內容」，
     這樣 validate_report.py 的「五個時段是否全部沒有內容」防呆判斷才會
     正確；至於「缺 1～4 個時段仍可發布」的行為，是刻意設計、不受這個
-    函式影響（見 docs/cowork-schedules.md 排程五）。
+    函式影響（見 docs/cloud-schedules.md 排程五）。
     """
     return [slot for slot in SLOTS if not slot_body(content, slot)]
