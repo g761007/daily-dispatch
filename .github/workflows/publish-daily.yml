@@ -1,20 +1,20 @@
 name: Publish Daily Summary
 
-# 只允許排程與手動觸發，不接受任何形式的外部 PR 觸發，
+# 只允許手動與「發布觸發檔 push」兩種方式觸發，不接受任何形式的外部 PR 觸發，
 # 也不會 checkout 或執行來自 Fork 的程式碼（沒有 pull_request / pull_request_target 觸發）。
+#
+# 2026-08 變更：移除原本的 GitHub 原生 `schedule` cron。GitHub Actions 的
+# schedule 觸發長期不穩定（延遲超過一小時、甚至整次被跳過，見 2026-07-25/26
+# 的實際觀察）。正式發布的「排程」職責已經全部改由 Claude Code 雲端排程
+# （routine「📤 每日發布觸發（07:07）」）負責：該 routine 每天 Asia/Taipei
+# 07:07 在雲端更新並 push `.github/publish-trigger`，藉由下方 push 觸發本
+# workflow。手動補發仍可用 workflow_dispatch。
+#
+# 「24:00」是節目表式記法（代表前一天最後一次分析），實際觸發時刻是當天
+# 00:00 Asia/Taipei；發布 routine 固定在隔天 07:07 執行、對應「前一天」的摘要。
+# GitHub Pages 的部署由本 workflow 的 deploy_pages job 呼叫（見下方 jobs），
+# 新文章一定在這次執行才部署上線，跟 Telegram 通知同時發生。
 on:
-  schedule:
-    # 23:07 UTC = 07:07 Asia/Taipei（原本是 00:00 UTC / 08:00 Asia/Taipei，提前約 1 小時）。
-    # 刻意不排在整點（例如 23:00 UTC），因為 00:00 UTC 是全球排程最壅塞的時間點，
-    # GitHub 官方文件也建議避開整點以降低延遲或被跳過的機率
-    # （2026-07-25 就發生過整點排程過了一個多小時仍未觸發的狀況）。
-    # 最後一次分析時段標記為「24:00」（節目表式記法，代表前一天最後一次），
-    # 實際觸發時刻是當天 00:00 Asia/Taipei。
-    # 2026-07-26 變更：GitHub Pages 的部署已經改成由本 workflow 的
-    # deploy_pages job 呼叫（見下方 jobs），不再依賴 site/** push 自動觸發，
-    # 也不需要再靠時間間隔去「賭」Pages 有沒有部署完成——新文章一定會在這次
-    # 執行時才部署上線，跟 Telegram 通知同時發生。
-    - cron: "7 23 * * *"
   workflow_dispatch:
     inputs:
       date:
@@ -24,11 +24,9 @@ on:
   push:
     branches: [main]
     paths:
-      # 2026-07-26 新增：GitHub 原生 schedule cron 已經連續發生過延遲/被跳過的
-      # 情況（見 commit e5caae3、以及 2026-07-25/26 的實際觀察），所以額外用
-      # 一個 Cowork Scheduled Task 在 07:15 Asia/Taipei（cron 排定的 07:07
-      # 之後）去 push 這個檔案，藉由 push 觸發本 workflow 當作備援；正常內容
-      # 排程（reports/**、site/**）不會觸發這裡，只有這個檔案有變更才會。
+      # 正式發布的唯一自動觸發來源：Claude Code 雲端排程 routine 每天 07:07
+      # （Asia/Taipei）在雲端 push 這個檔案來觸發本 workflow。正常內容排程
+      # （reports/**、site/**）不會觸發這裡，只有這個檔案有變更才會。
       # 是否已經發布過、要不要重複發送 Telegram，交給下面 publish job 自己的
       # 「已發布狀態檔」機制與本 workflow 的 concurrency 設定判斷，這裡不需要
       # 額外處理。
