@@ -46,8 +46,15 @@ Claude Code 雲端排程（routines）**，取代先前的 Claude Cowork Schedul
   2. 臺灣/兩岸相關新聞
   3. 科技與 AI 產業動態（新產品、重大技術發布、公司動向）
   4. 財經與市場（股市、匯率、重大經濟數據，若有明顯波動請標註）
-- 一律使用 **Asia/Taipei** 日期與時間（可用 `TZ=Asia/Taipei date` 取得），
-  不可直接使用執行環境的 UTC 日期。
+- 一律使用 **Asia/Taipei** 日期與時間，不可直接使用執行環境的 UTC 日期。
+  決定目標檔名前，**必須先實際執行 `TZ=Asia/Taipei date +%F`**，並且只用這個
+  指令的輸出組成 `reports/YYYY-MM-DD.md`；不可依賴 `date` 預設輸出、環境變數、
+  對話中提到的日期或自己推算。雲端環境的系統時區是 UTC，Asia/Taipei = UTC+8，
+  因此凡是台北時間早於 08:00 的排程（例如 05:00 那支），UTC 日期一定比台北日期
+  少一天——2026-08-11 05:14 的 05:00 排程就是直接用了 UTC 日期，把當日內容寫進
+  `reports/2026-08-10.md`，覆蓋前一天的 05:00 時段、並把已經是 `ready` 的狀態
+  改回 `collecting`，導致當天 07:07 的正式發布驗證失敗（見 commit `3c603a3`
+  與其修正 `a1beb5a`）。
 - routine 在雲端已自動 clone 好 repository（cwd 即 repo 根目錄，`origin` 已設定
   好、具備 push 權限）；直接在工作目錄讀寫、commit、`git push origin main` 即可，
   **不需要、也不可以**再自己用帶 token 的 URL 重新 clone。不執行 `git remote -v`
@@ -67,7 +74,15 @@ Claude Code 雲端排程（routines）**，取代先前的 Claude Cowork Schedul
 ## 內容分析時段（05:00 / 10:00 / 15:00 / 20:00）
 
 四個內容 routine 的工作相同，差別只在：負責的時段、搜尋「自上一時段之後」的
-新消息、以及寫入對應的 slot 區塊。寫入（或取代）
+新消息、以及寫入對應的 slot 區塊。
+
+**第一步一律是決定目標日期**：執行 `TZ=Asia/Taipei date +%F`，用它的輸出當作
+`YYYY-MM-DD`（這四個時段的目標日期就是「當天」，不加減任何天數；只有 24:00
+那支要減一天，見下一節）。若 `reports/YYYY-MM-DD.md` 不存在，代表這是當天第一次
+分析，要新建骨架，**絕對不可以改寫前一天的檔案**——前一天的檔案通常已經是
+`<!-- status: ready -->`，寫進去就會毀掉已完成、待發布的內容。
+
+接著寫入（或取代）
 `<!-- slot: HH:MM:start -->` 到 `<!-- slot: HH:MM:end -->` 之間的內容，格式：
 
 ```
