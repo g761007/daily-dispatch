@@ -40,9 +40,9 @@ import _common as c
 
 REQUIRED_FRONT_MATTER_KEYS = ["title", "date", "description", "layout", "published"]
 
-# 只比對「看起來像 Markdown 連結」的那一段（[ 開頭、] 結尾、緊接著 (），避免
-# 誤判內文中純粹當作強調符號使用、但沒有構成連結的 | 字元。
-LINK_WITH_PIPE_PATTERN = re.compile(r"\[[^\[\]\n]*\|[^\[\]\n]*\]\(")
+# 比對規則放在 _common.py，與 sanitize_report.py（自動修正）共用同一條，
+# 避免「會修的」和「會擋的」判斷不一致。
+LINK_WITH_PIPE_PATTERN = c.LINK_WITH_PIPE_PATTERN
 
 
 def find_links_with_pipe(content: str) -> list[str]:

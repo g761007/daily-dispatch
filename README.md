@@ -149,6 +149,7 @@ daily-dispatch/
 │   ├── _common.py                 共用工具（時區、路徑、slot 解析）
 │   ├── requirements.txt
 │   ├── validate_report.py
+│   ├── sanitize_report.py        自動修正機械性格式問題（連結文字裡的 |）
 │   ├── extract_summary.py
 │   ├── send_telegram.py
 │   └── mark_published.py
@@ -162,6 +163,7 @@ daily-dispatch/
 └── .github/
     └── workflows/
         ├── publish-daily.yml      每日正式發布（驗證 + Telegram + 標記已發布）
+        ├── content-guard.yml      內容 push 後自動修正格式問題（防呆）
         └── deploy-pages.yml       GitHub Pages 部署
 ```
 
@@ -475,15 +477,27 @@ A: 通常是 Project Pages 的路徑問題。請確認 `site/_config.yml` 的 `b
 A: 2026-07-26 曾發生：來源格式若寫成 `[文章標題 | 來源名稱](網址)`，連結文字
 裡未跳脫的 `|` 會被網站使用的 kramdown（`site/_config.yml` 設定
 `kramdown: input: GFM`）誤判成表格分隔符，導致連結被切成兩半、只有含網址的
-那半段被轉成連結。這個問題現在有兩層防護：(1) 五個雲端分析 routine 的
-prompt（`docs/cloud-schedules.md`）已明確要求連結文字不可包含 `|`，要分隔
-標題與來源一律用 `-`；(2) `validate_report.py` 會機械掃描 `reports/` 與
-`site/_summaries/` 裡的連結，偵測到未跳脫的 `|` 就直接擋下發布（見下方
-`publish-daily.yml` 的 `validate` job，這一步排在 `deploy_pages` 之前，格式
-有問題就不會部署上線）。如果還是看到這個問題，代表是舊文章（`validate`
-job 上線之前發布的），請直接修改對應的 `reports/YYYY-MM-DD.md` 與
-`site/_summaries/YYYY-MM-DD.md`，把 `|` 換成 `-` 後重新 commit + push，再手動
-觸發一次 `Deploy GitHub Pages`（`workflow_dispatch`）讓修正上線。
+那半段被轉成連結。同樣的問題在 2026-08-25、2026-09-10 又各發生一次（都讓當日
+摘要延後數小時才發布），因此現在有三層防護，由前到後分別是：
+
+1. **寫入時**：五個雲端分析 routine 的 prompt（`docs/cloud-schedules.md`）要求
+   連結文字不可包含 `|`，且 commit 前要先執行
+   `python scripts/sanitize_report.py --date YYYY-MM-DD` 自動修正。
+2. **push 進 main 後一分鐘內**：`content-guard.yml` 會對 `reports/**` 與
+   `site/_summaries/**` 的每次 push 重跑一次同一支腳本，發現問題就自動修好並
+   commit 回 main。這一層不依賴 AI 有沒有照著 prompt 做，是純機械規則。
+3. **發布前**：`validate_report.py` 機械掃描 `reports/` 與 `site/_summaries/`
+   裡的連結，偵測到未跳脫的 `|` 就直接擋下發布（見下方 `publish-daily.yml`
+   的 `validate` job，這一步排在 `deploy_pages` 之前，格式有問題就不會部署
+   上線）。第 2 層正常運作時，這一層應該不會再被觸發。
+
+第 1、2 層用的是同一支 `scripts/sanitize_report.py`，第 3 層用的偵測規則
+（`_common.py` 的 `LINK_WITH_PIPE_PATTERN`）也是同一條，所以「會修的」和
+「會擋的」判斷不可能不一致。
+
+如果還是看到這個問題，代表是舊文章（防護上線之前發布的）。請執行
+`python scripts/sanitize_report.py --all` 一次修好全部日期，commit + push 後
+手動觸發一次 `Deploy GitHub Pages`（`workflow_dispatch`）讓修正上線。
 
 **Q: 五個雲端分析 routine 會不會不小心把 Secrets 寫進 reports？**
 A: 各 routine 的 prompt（見 `docs/cloud-schedules.md`）明確要求「不得寫入任何

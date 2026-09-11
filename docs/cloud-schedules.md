@@ -64,6 +64,12 @@ Claude Code 雲端排程（routines）**，取代先前的 Claude Cowork Schedul
   「取代」該時段內容，不可重複附加、不可刪改其他時段。
 - 內容 routine **不可**呼叫 Telegram、不可觸發或執行 `publish-daily.yml`、不可
   讀寫任何 GitHub Secrets。
+- **commit 前一定要先執行 `python scripts/sanitize_report.py --date YYYY-MM-DD`**
+  （YYYY-MM-DD 就是這次寫入的目標日期）。這支腳本會把「機械上可以自動修正」
+  的格式問題就地修好——目前是連結文字裡未跳脫的 `|`——再把修改一起 commit。
+  它只做明確的字元替換，不會改寫分析內容。
+  （這條規則需要手動加進各 routine 的 prompt 才會生效，見「內容格式防呆」一節；
+  沒加也不影響發布，push 後的 `content-guard.yml` 會補上同一個修正。）
 - 完成後 commit 並 `git push origin main`（push 被拒時先
   `git pull --rebase origin main` 再 push）。
 - 全程使用台灣正體中文撰寫分析內容。
@@ -106,7 +112,10 @@ Claude Code 雲端排程（routines）**，取代先前的 Claude Cowork Schedul
   - 若要同時附上文章標題，格式固定為 `[文章標題 - 來源名稱](網址)`；連結文字
     （方括號中間的文字）裡絕對不可以出現 `|` 符號——網站用 kramdown 的 GFM
     解析器，行內未跳脫的 `|` 會被誤判成表格分隔符，導致連結顯示錯誤
-    （2026-07-26 已發生過實際案例）。一律用「-」分隔。
+    （2026-07-26、2026-08-25、2026-09-10 都發生過，每次都讓當日摘要無法如期
+    發布）。一律用「-」分隔；原文標題本身含 `|` 時也要換成 `-`。即使這裡疏忽
+    了，commit 前的 `sanitize_report.py` 與 push 後的 `content-guard.yml` 還會
+    各修一次，但不要依賴它們——那是防呆，不是流程。
 
 #### 2. 臺灣/兩岸相關新聞
 （格式同上；若無則寫「本時段本類別無重要更新。」）
@@ -202,6 +211,46 @@ routine**——因為 GitHub Actions 的 schedule cron 長期不穩定（延遲�
 
 `publish-daily.yml` 已移除 `schedule` cron，只保留 `workflow_dispatch`（手動補發）
 與 `on.push`（發布 routine 觸發）。
+
+## 內容格式防呆（三層）
+
+分析內容由 AI 生成，光靠 prompt 要求格式並不可靠（同一個格式問題已經發生過
+三次）。因此同一條規則在三個時間點各檢查一次，由前到後：
+
+| 層 | 時機 | 由誰執行 | 行為 | 狀態 |
+| --- | --- | --- | --- | --- |
+| 1 | commit 前 | 內容 routine 自己 | `scripts/sanitize_report.py --date YYYY-MM-DD` 自動修正 | 需手動加進 routine prompt（見下） |
+| 2 | push 進 main 後 | `.github/workflows/content-guard.yml` | 同一支腳本跑 `--all`，有修正就自動 commit 回 main | 已生效 |
+| 3 | 正式發布前 | `publish-daily.yml` 的 `validate` job | `validate_report.py` 偵測到就擋下發布，不會部署上線 | 已生效 |
+
+第 2 層是真正的防呆主力：它完全不依賴 AI 有沒有照著 prompt 做，只要內容進了
+`main` 就一定會跑。**即使第 1 層沒有裝，第 2、3 層也足以讓這個問題不再影響
+發布**——第 1 層只是讓修正更早發生（在 commit 當下，而不是 push 之後）。
+第 3 層是最後一道防線，正常情況下不應該再被觸發。
+
+三層用的偵測規則都是 `scripts/_common.py` 的 `LINK_WITH_PIPE_PATTERN`，
+不會各自漂移。目前處理的項目只有「連結文字裡未跳脫的 `|`」；要新增可自動
+修正的規則時，改 `scripts/sanitize_report.py` 一處即可，三層會同時生效。
+
+### 第 1 層要怎麼裝
+
+routine 的 prompt 是 source of truth，存在 routine 設定裡，**無法從程式或
+agent 修改**（這些 routine 是用 HTTP API 建立的），只能到
+<https://claude.ai/code/routines> 手動編輯。請把五個內容 routine 的「完成後」
+段落改成：
+
+```
+## 完成後
+
+1. **先執行 `python scripts/sanitize_report.py --date YYYY-MM-DD`**（用上面決定的
+   目標日期）。這支腳本會自動修正「機械上可以修好」的格式問題（目前是連結文字裡
+   未跳脫的 `|`），只做字元替換、不會改寫分析內容。它是防呆，不是上面格式要求的
+   替代品——該照的格式還是要照。
+2. `git add ...`（腳本若有修改，修正會一起被 add）、commit、`git push origin main`。
+   若 push 被拒，先 `git pull --rebase origin main` 再 push。
+```
+
+24:00 那支的 `git add` 要同時包含 `reports/` 與 `site/_summaries/` 兩個檔案。
 
 ## 如何檢視與修改
 
