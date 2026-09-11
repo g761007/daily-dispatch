@@ -1,0 +1,66 @@
+name: Content Guard
+
+# 內容格式防呆：只要有新的分析／摘要 push 進 main，就立刻用機械規則掃一次，
+# 能自動修正的問題（目前是「連結文字裡未跳脫的 |」）直接修好並 commit 回去。
+#
+# 為什麼需要這個 workflow：
+# publish-daily.yml 的 validate job 已經會擋下這類問題，但它是「發布前的最後
+# 一道防線」——只會擋、不會修，而且要等到隔天 07:07 才跑。實際發生過三次
+# （2026-07-26、2026-08-25、2026-09-10）都是同一個劇本：內容在前一天就寫壞了，
+# 隔天早上發布失敗才有人發現，當日摘要因此延遲數小時甚至整天沒發出去。
+# 這個 workflow 把「發現」提前到內容 push 後一分鐘內，而且直接修好，
+# 讓 07:07 的正式發布不會再因為這種純格式問題被卡住。
+#
+# 不會無限循環：本 workflow 自己的 commit 是用 GITHUB_TOKEN push 的，
+# GitHub Actions 不會因此再觸發一次 workflow；而且就算被觸發，第二次掃描
+# 已經沒有東西可修，不會產生新的 commit。
+on:
+  push:
+    branches: [main]
+    paths:
+      - "reports/**"
+      - "site/_summaries/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# 內容排程可能連續 push（例如補跑時段），讓後面的執行等前一個做完再跑，
+# 避免兩個執行同時 commit 造成互相打架。
+concurrency:
+  group: content-guard
+  cancel-in-progress: false
+
+jobs:
+  sanitize:
+    name: Auto-fix mechanical formatting problems
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # sanitize_report.py 只用到標準函式庫，不需要安裝 requirements.txt。
+      - name: Sanitize reports and summaries
+        run: python scripts/sanitize_report.py --all
+
+      - name: Commit and push fixes (if any)
+        run: |
+          if git diff --quiet; then
+            echo "沒有需要修正的內容，結束。"
+            exit 0
+          fi
+          echo "偵測到以下自動修正："
+          git --no-pager diff --stat
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add reports site/_summaries
+          git commit \
+            -m "chore: 自動修正連結文字裡未跳脫的 | 符號" \
+            -m "由 content-guard.yml 偵測並修正，規則見 scripts/sanitize_report.py。kramdown 的 GFM 解析器會把行內未跳脫的 | 誤判成表格分隔符，導致連結顯示錯誤，也會讓 publish-daily.yml 的發布驗證失敗。"
+          git pull --rebase origin "${{ github.ref_name }}"
+          git push origin "HEAD:${{ github.ref_name }}"

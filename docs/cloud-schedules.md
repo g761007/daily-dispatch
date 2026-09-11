@@ -64,6 +64,10 @@ Claude Code 雲端排程（routines）**，取代先前的 Claude Cowork Schedul
   「取代」該時段內容，不可重複附加、不可刪改其他時段。
 - 內容 routine **不可**呼叫 Telegram、不可觸發或執行 `publish-daily.yml`、不可
   讀寫任何 GitHub Secrets。
+- **commit 前一定要先執行 `python scripts/sanitize_report.py --date YYYY-MM-DD`**
+  （YYYY-MM-DD 就是這次寫入的目標日期）。這支腳本會把「機械上可以自動修正」
+  的格式問題就地修好——目前是連結文字裡未跳脫的 `|`——再把修改一起 commit。
+  它只做明確的字元替換，不會改寫分析內容。
 - 完成後 commit 並 `git push origin main`（push 被拒時先
   `git pull --rebase origin main` 再 push）。
 - 全程使用台灣正體中文撰寫分析內容。
@@ -106,7 +110,10 @@ Claude Code 雲端排程（routines）**，取代先前的 Claude Cowork Schedul
   - 若要同時附上文章標題，格式固定為 `[文章標題 - 來源名稱](網址)`；連結文字
     （方括號中間的文字）裡絕對不可以出現 `|` 符號——網站用 kramdown 的 GFM
     解析器，行內未跳脫的 `|` 會被誤判成表格分隔符，導致連結顯示錯誤
-    （2026-07-26 已發生過實際案例）。一律用「-」分隔。
+    （2026-07-26、2026-08-25、2026-09-10 都發生過，每次都讓當日摘要無法如期
+    發布）。一律用「-」分隔；原文標題本身含 `|` 時也要換成 `-`。即使這裡疏忽
+    了，commit 前的 `sanitize_report.py` 與 push 後的 `content-guard.yml` 還會
+    各修一次，但不要依賴它們——那是防呆，不是流程。
 
 #### 2. 臺灣/兩岸相關新聞
 （格式同上；若無則寫「本時段本類別無重要更新。」）
@@ -202,6 +209,24 @@ routine**——因為 GitHub Actions 的 schedule cron 長期不穩定（延遲�
 
 `publish-daily.yml` 已移除 `schedule` cron，只保留 `workflow_dispatch`（手動補發）
 與 `on.push`（發布 routine 觸發）。
+
+## 內容格式防呆（三層）
+
+分析內容由 AI 生成，光靠 prompt 要求格式並不可靠（同一個格式問題已經發生過
+三次）。因此同一條規則在三個時間點各檢查一次，由前到後：
+
+| 層 | 時機 | 由誰執行 | 行為 |
+| --- | --- | --- | --- |
+| 1 | commit 前 | 內容 routine 自己（見上方共用規則） | `scripts/sanitize_report.py --date YYYY-MM-DD` 自動修正 |
+| 2 | push 進 main 後 | `.github/workflows/content-guard.yml` | 同一支腳本跑 `--all`，有修正就自動 commit 回 main |
+| 3 | 正式發布前 | `publish-daily.yml` 的 `validate` job | `validate_report.py` 偵測到就擋下發布，不會部署上線 |
+
+第 1 層依賴 routine 有照著 prompt 做；第 2 層不依賴 AI，是純機械規則，也是
+真正的防呆主力；第 3 層是最後一道防線，正常情況下不應該再被觸發。三層用的
+偵測規則都是 `scripts/_common.py` 的 `LINK_WITH_PIPE_PATTERN`，不會各自漂移。
+
+目前處理的項目只有「連結文字裡未跳脫的 `|`」。要新增可自動修正的規則時，
+改 `scripts/sanitize_report.py` 一處即可，三層會同時生效。
 
 ## 如何檢視與修改
 

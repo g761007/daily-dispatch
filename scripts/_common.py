@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -27,6 +28,16 @@ SLOTS = ["05:00", "10:00", "15:00", "20:00", "24:00"]
 FINAL_SLOT = "24:00"
 
 DATE_FMT = "%Y-%m-%d"
+
+# 「連結文字裡含有未跳脫的 | 」的比對規則。網站用 kramdown 的 GFM 模式解析，
+# 行內未跳脫的 | 會被誤判成表格分隔符，導致連結被切成兩半、顯示錯誤。
+# 只比對「看起來像 Markdown 連結」的那一段（[ 開頭、] 結尾、緊接著 (），避免
+# 誤判內文中純粹當作強調符號使用、但沒有構成連結的 | 字元。
+#
+# 這條規則同時被 validate_report.py（發布前擋下）與 sanitize_report.py
+# （寫入當下自動修正）使用，放在這裡是為了確保兩者永遠是同一條規則——
+# 若各自實作，很容易出現「修正的和擋下的判斷不一致」而互相打架。
+LINK_WITH_PIPE_PATTERN = re.compile(r"\[[^\[\]\n]*\|[^\[\]\n]*\]\(")
 
 
 def die(message: str, code: int = 1) -> None:
